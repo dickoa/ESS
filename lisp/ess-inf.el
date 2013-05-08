@@ -173,7 +173,8 @@ Alternatively, it can appear in its own frame if
     (let* ((process-environment process-environment)
            (defdir (or (and ess-directory-function (funcall ess-directory-function))
                        ess-directory default-directory))
-           (temp-dialect (if ess-use-inferior-program-name-in-buffer-name
+
+           (temp-dialect (if ess-use-inferior-program-name-in-buffer-name ;VS[23-02-2013]: fixme: this should not be here
                              (if (string-equal temp-ess-dialect "R")
                                  inferior-R-program-name
                                temp-ess-dialect) ; use temp-ess-dialect
@@ -238,12 +239,12 @@ Alternatively, it can appear in its own frame if
       (ess-write-to-dribble-buffer
        (format "(inf-ess 2.1): ess-language=%s, ess-dialect=%s buf=%s \n"
                ess-language  ess-dialect (current-buffer)))
-      (ess-write-to-dribble-buffer
-       (format "(inf-ess 2.2): start args = %s, inf-ess-start-args=%s \n"
-               ess-start-args inferior-ess-start-args))
-      (ess-write-to-dribble-buffer
-       (format "(inf-ess finish [%s(%s), %s(%s)]\n"
-               ess-language ess-dialect inferior-ess-program ess-local-process-name))
+      ;; (ess-write-to-dribble-buffer
+      ;;  (format "(inf-ess 2.2): start args = %s, inf-ess-start-args=%s \n"
+      ;;          ess-start-args inferior-ess-start-args))
+      ;; (ess-write-to-dribble-buffer
+      ;;  (format "(inf-ess finish [%s(%s), %s(%s)]\n"
+      ;;          ess-language ess-dialect inferior-ess-program ess-local-process-name))
 
       ;; Set up history file
       (if ess-history-file
@@ -366,10 +367,10 @@ there is no process NAME)."
         (ess-process-put 'funargs-cache (make-hash-table :test 'equal))
         (ess-process-put 'funargs-pre-cache nil)
 
+        (run-hooks 'ess-post-run-hook)
 
         ;; EXTRAS
         (ess-load-extras t)
-        (run-hooks 'ess-post-run-hook)
         ;; user initialization can take some time ...
         (ess-write-to-dribble-buffer "(ess-multi 3): waiting for process after hook")
         (ess-wait-for-process (get-process proc-name) nil 0.01)
@@ -543,13 +544,14 @@ This was rewritten by KH in April 1996."
 ;;*;; Requester functions called at startup
 
 (defun ess-get-directory (default dialect procname)
-  (let ((prog-version (if (string= dialect "R")
-                          inferior-R-version ; notably for the R-X.Y versions
-                        ;; should rather use procname ?
-                        inferior-ess-program)))
+  (let ((prog-version (cond ((string= dialect "R")
+                             (concat ", " inferior-R-version)) ; notably for the R-X.Y versions
+                            (inferior-ess-program
+                             (concat ", " inferior-ess-program ))
+                            (t ""))))
     (ess-prompt-for-directory
      (directory-file-name default)
-     (format "ESS (*%s* '%s') starting data directory? "
+     (format "ESS (*%s*%s) starting data directory? "
              procname prog-version)
      ;; (format "ESS [%s {%s(%s)}: '%s'] starting data directory? "
      ;;         ;;FIXME: maybe rather tmp-dialect (+ evt drop ess-language?)?
@@ -1134,8 +1136,11 @@ STRING.
   (inferior-ess-mark-as-busy process)
   (if (fboundp (buffer-local-value 'ess-send-string-function
                                    (current-buffer)))
-      ;; overloading of the sending function
+      ;; sending function is overloaded
       (funcall ess-send-string-function process string visibly)
+    (when (and (eq visibly t)
+               (null inferior-ess-secondary-prompt)) ; cannot evaluate visibly
+      (setq visibly 'nowait))
     (cond ((eq visibly t) ;; wait after each line
            (let ((ess--inhibit-presend-hooks t))
              (ess-eval-linewise string)))
@@ -1525,7 +1530,7 @@ TEXT.
               (setq text (ess-replace-in-string text ";" "\n")))
           (setq invisibly t))
         (setq text (propertize text 'field 'input 'front-sticky t))
- 
+
         (goto-char (marker-position (process-mark sprocess)))
         (if (stringp invisibly)
             (insert-before-markers (concat "*** " invisibly " ***\n")))
@@ -1599,7 +1604,7 @@ TEXT.
 
 (defvar  ess-current-region-overlay
   (let ((overlay (make-overlay (point) (point))))
-    (overlay-put overlay 'face  'highlight) ;; todo use highlight??
+    (overlay-put overlay 'face  'highlight)
     overlay)
   "The overlay for highlighting currently evaluated region or line.")
 
@@ -2075,8 +2080,11 @@ for `ess-eval-region'."
     ["Get help on S object"   ess-display-help-on-object    t]
     "------"
     ("Process"
-     ["Process Echoes" (lambda () (interactive) (setq comint-process-echoes (not comint-process-echoes)))
-                         :style toggle :selected comint-process-echoes]
+     ["Process Echoes" (lambda () (interactive)
+                         (setq comint-process-echoes (not comint-process-echoes)))
+      :active t
+      :style toggle
+      :selected comint-process-echoes]
      ("Eval visibly "
       :filter ess--generate-eval-visibly-submenu ))
     "------"

@@ -57,6 +57,8 @@
   (require 'cl))
 
 (autoload 'ess-helpobjs-at-point        "ess-help" "[autoload]" nil) ;;todo: rename and put into a more neutral place
+(defvar text-scale-mode-amount)
+(autoload 'text-scale-mode              "face-remap" "[autoload]" nil)
 
 (defgroup ess-tracebug nil
   "Error navigation and debugging for ESS.
@@ -194,6 +196,8 @@ referenced buffer.
 (defvar ess--tb-buffer-sym nil)
 (make-variable-buffer-local 'ess--tb-buffer-sym)
 
+(defvar org-src-mode)
+
 (defun ess--tb-get-source-refd-string (beg end)
   "Encapsulate the region string into eval(parse ... )
 block (used for source references insertion)"
@@ -203,9 +207,9 @@ block (used for source references insertion)"
       (setq ess--tb-buffer-sym (format "TB%d" ess--tracebug-eval-index)))
     (unless filename ;; org, etc
       (setq filename (format "[%s]" ess--tb-buffer-sym))
-      (if org-src-mode ;;
-          (setq filename (concat (buffer-file-name (marker-buffer org-edit-src-beg-marker))
-                                 filename))))
+      (when (and (boundp 'org-src-mode) org-src-mode)
+        (setq filename (concat (buffer-file-name (marker-buffer org-edit-src-beg-marker))
+                               filename))))
     ;; next drops are not necesarry for function but will be for regions
     (goto-char beg)
     (when (looking-at "\\s +") ;drop trailing lines
@@ -1077,6 +1081,7 @@ of the ring."
 
 This function is placed in `ess-presend-filter-functions'.
 "
+  ;; the process here is an ugly reliance on dynamic scope
   (if (and ess--dbg-del-empty-p (process-get process 'dbg-active))
       (replace-regexp-in-string "\n\\s *$" "" string)
     string))
@@ -1330,7 +1335,7 @@ is non nil, attempt to open the location in a different window."
         (run-with-timer ess-dbg-blink-interval nil
                         (lambda ()
                           (overlay-put ess-dbg-current-debug-overlay 'face 'ess-dbg-current-debug-line-face)))
-        (message "Referenced file %s is not found" (car ref))
+        (message "Referenced %s not found" (car ref))
         ))))
 
 (defun ess-dbg-goto-ref (other-window file line &optional col tb-index)
@@ -1366,22 +1371,23 @@ TB-INDEX is not found return nil.
   (let ((buffer (ess-dbg-find-buffer  file))
         pos)
     (when (and buffer  line)
-      (with-current-buffer buffer
-        (save-restriction
-          (widen) ;; need this tothink:
-          (goto-char 1)
-          (setq pos (point))
-          (when tb-index
-            (while (and (not (eq tb-index (get-text-property pos 'tb-index)))
-                        (setq pos (next-single-property-change pos 'tb-index)))))
-          (when pos ;; if tb-index is not found return nil
-            (goto-char pos)
-            (forward-line (1- line))
-            (if col
-                (goto-char (+ (point-at-bol) col))
-              (end-of-line))
-            (list (point-marker) (copy-marker (point-at-bol))))
-          )))))
+      (save-excursion
+        (with-current-buffer buffer
+          (save-restriction
+            (widen) ;; need this tothink:
+            (goto-char 1)
+            (setq pos (point))
+            (when tb-index
+              (while (and (not (eq tb-index (get-text-property pos 'tb-index)))
+                          (setq pos (next-single-property-change pos 'tb-index)))))
+            (when pos ;; if tb-index is not found return nil
+              (goto-char pos)
+              (forward-line (1- line))
+              (if col
+                  (goto-char (+ (point-at-bol) col))
+                (end-of-line))
+              (list (point-marker) (copy-marker (point-at-bol))))
+            ))))))
 
 
 (defun ess-dbg-find-buffer (filename)
@@ -2306,15 +2312,15 @@ Arguments IGNORE and NOCONFIRM currently not used."
   ;; :type 'string
   )
 
-(defcustom ess-watch-height-threshold 40
+(defcustom ess-watch-height-threshold split-height-threshold
   "Minimum height for splitting *R* windwow sensibly to make space for watch window.
 Has exactly the same meaning and initial value as `split-height-threshold'."
   :group 'ess-debug
   :type 'integer)
 
-(defcustom ess-watch-width-threshold 70
+(defcustom ess-watch-width-threshold split-width-threshold
   "Minimum width for splitting *R* windwow sensibly to make space for watch window.
-Has exactly the same meaning and initial value as `split-width-threshold'."
+Has the same meaning and initial value as `split-width-threshold'."
   :group 'ess-debug
   :type 'integer)
 
