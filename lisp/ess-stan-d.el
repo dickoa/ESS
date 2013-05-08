@@ -51,19 +51,21 @@
 
 (defvar ess-stan-system t "Default whether STAN recognizes the system command.")
 
-
 (defvar stan-blocks
   '("data" "transformed data" 
     "parameters" "transformed parameters" 
     "model" "generated quantities")
   "Model blocks in Stan")
+
 (defvar stan-types
   '("int" "real" "vector" "ordered" "positive_ordered" "simplex" "row_vector" 
     "matrix" "corr_matrix" "cov_matrix")
   "Types in Stan")
+
 (defvar stan-type-bounds
   '("lower" "upper")
   "Types in Stan")
+
 (defvar stan-distributions
   '("bernoulli" "bernoulli_logit" "beta_binomial" 
     "beta" "binomial" "categorical" "cauchy" "chi_square" "dirichlet"
@@ -78,12 +80,14 @@
     "student_t" "uniform"
     "weibull" "wishart")
   "Distributions in Stan (see index)")
+
 (defvar stan-cdfs
   '("bernoulli_cdf" "beta_binomial_cdf" "beta_cdf" "binomial_cdf" 
     "exponential_cdf" "inv_chi_square_cdf" "inv_gamma_cdf" "logistic_cdf" 
     "lognormal_cdf" "neg_binomial_cdf" "normal_cdf" "pareto_cdf" 
     "poisson_cdf" "scaled_inv_chi_square_cdf" "student_t_cdf")
   "CDFs in Stan (see index)")
+
 (defvar stan-functions
   '("Phi" "Phi_approx" "abs" "acos" "acosh" "asin"
     "asinh" "atan" "atan2" "atanh" "binary_log_loss"
@@ -108,6 +112,7 @@
     "square" "step" "sum" "tan" "tanh" 
     "tcrossprod" "tgamma" "trace" "trunc" "variance")
   "Functions in Stan (excluding distributions and cdfs)")
+
 (defvar stan-keywords
   '("for")
   "Keywords in Stan")
@@ -160,30 +165,3 @@
 
 (setq features (delete 'ess-bugs-d features))
 (provide 'ess-stan-d)
-
-;;; ess-stan-d.el ends here
-
-
-
-;; ;; Stan mode for v1.2.0 of the language
-
-
-;; (define-derived-mode 
-;;   stan-mode   ; variant
-;;   c++-mode    ; parent
-;;   "stan-mode" ; name
-;;   "Stan mode is a mode for editing Stan models" ; doc string
-;;   ;; keyword-args
-;;   ;; body
-;;   ;; comments: '#', '//', or '/*' '*/' pair
-;;   (modify-syntax-entry ?# "< b" stan-mode-syntax-table)
-;;   (modify-syntax-entry ?_ "w" stan-mode-syntax-table)
-;;   (modify-syntax-entry ?\' "_" stan-mode-syntax-table)
-;;   (setq font-lock-defaults stan-font-lock-defaults)   ; stan fonts
-;;   )
-
-
-;; (add-to-list 'auto-mode-alist 
-;; 	     '("\\.stan\\'" . stan-mode))
-
-;; (provide 'stan-mode)
