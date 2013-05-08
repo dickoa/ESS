@@ -49,54 +49,60 @@
 (require 'easymenu)
 
 (autoload 'ess-help-underline "ess-help" "(Autoload)" t)
+(autoload 'ess--flush-help-into-current-buffer "ess-help" "(Autoload)" t)
 
 (defvar ess-dev-map
   (let (ess-dev-map)
     (define-prefix-command 'ess-dev-map)
-    (define-key ess-dev-map "t" 'ess-toggle-developer)
+    ;; Note: some of these comand are automatically redefined by those in
     (define-key ess-dev-map "\C-t" 'ess-toggle-developer)
+    (define-key ess-dev-map "t" 'ess-toggle-developer)
+    ;; (define-key ess-dev-map "\C-T" 'ess-toggle-tracebug)
     (define-key ess-dev-map "T" 'ess-toggle-tracebug)
-    (define-key ess-dev-map "a" 'ess-developer-add-package)
     (define-key ess-dev-map "\C-a" 'ess-developer-add-package)
-    (define-key ess-dev-map "r" 'ess-developer-remove-package)
+    (define-key ess-dev-map "a" 'ess-developer-add-package)
     (define-key ess-dev-map "\C-r" 'ess-developer-remove-package)
-    (define-key ess-dev-map "`" 'ess-show-R-traceback)
-    (define-key ess-dev-map "w" 'ess-watch)
+    (define-key ess-dev-map "r" 'ess-developer-remove-package)
+    (define-key ess-dev-map "`" 'ess-show-traceback)
+    (define-key ess-dev-map "~" 'ess-show-call-stack)
     (define-key ess-dev-map "\C-w" 'ess-watch)
-    (define-key ess-dev-map "d" 'ess-dbg-flag-for-debugging)
-    (define-key ess-dev-map "\C-d" 'ess-dbg-flag-for-debugging)
-    (define-key ess-dev-map "D" 'ess-dbg-unflag-for-debugging)
-    (define-key ess-dev-map "b" 'ess-bp-set)
+    (define-key ess-dev-map "w" 'ess-watch)
+    (define-key ess-dev-map "\C-d" 'ess-debug-flag-for-debugging)
+    (define-key ess-dev-map "d" 'ess-debug-flag-for-debugging)
+    (define-key ess-dev-map "\C-u" 'ess-debug-unflag-for-debugging)
+    (define-key ess-dev-map "u" 'ess-debug-unflag-for-debugging)
+    (define-key ess-dev-map [(control ?D)] 'ess-debug-unflag-for-debugging)
     (define-key ess-dev-map "\C-b" 'ess-bp-set)
+    (define-key ess-dev-map "b" 'ess-bp-set)
+    (define-key ess-dev-map [(control ?B)] 'ess-bp-set-conditional)
     (define-key ess-dev-map "B" 'ess-bp-set-conditional)
+    (define-key ess-dev-map "\C-l" 'ess-bp-set-logger)
     (define-key ess-dev-map "l" 'ess-bp-set-logger)
-    ;; (define-key ess-dev-map "t" 'ess-bp-toggle-state)
+    (define-key ess-dev-map "\C-o" 'ess-bp-toggle-state)
+    (define-key ess-dev-map "o" 'ess-bp-toggle-state)
+    (define-key ess-dev-map "\C-k" 'ess-bp-kill)
     (define-key ess-dev-map "k" 'ess-bp-kill)
+    (define-key ess-dev-map "\C-K" 'ess-bp-kill-all)
     (define-key ess-dev-map "K" 'ess-bp-kill-all)
     (define-key ess-dev-map "\C-n" 'ess-bp-next)
+    (define-key ess-dev-map "n" 'ess-bp-next)
     (define-key ess-dev-map "\C-p" 'ess-bp-previous)
-    (define-key ess-dev-map "e" 'ess-dbg-toggle-error-action)
-    (define-key ess-dev-map "\C-e" 'ess-dbg-toggle-error-action)
-    (define-key ess-dev-map "c" 'ess-singlekey-debug)
-    (define-key ess-dev-map "\C-c" 'ess-singlekey-debug)
-    (define-key ess-dev-map "n" 'ess-singlekey-debug)
-    (define-key ess-dev-map "p" 'ess-singlekey-debug)
-    (define-key ess-dev-map "q" 'ess-singlekey-debug)
-    (define-key ess-dev-map "\C-q" 'ess-singlekey-debug)
-    (define-key ess-dev-map "0" 'ess-dbg-command-digit)
-    (define-key ess-dev-map "1" 'ess-singlekey-selection)
-    (define-key ess-dev-map "2" 'ess-singlekey-selection)
-    (define-key ess-dev-map "3" 'ess-singlekey-selection)
-    (define-key ess-dev-map "4" 'ess-singlekey-selection)
-    (define-key ess-dev-map "5" 'ess-singlekey-selection)
-    (define-key ess-dev-map "6" 'ess-singlekey-selection)
-    (define-key ess-dev-map "7" 'ess-singlekey-selection)
-    (define-key ess-dev-map "8" 'ess-singlekey-selection)
-    (define-key ess-dev-map "9" 'ess-singlekey-selection)
+    (define-key ess-dev-map "p" 'ess-bp-previous)
+    (define-key ess-dev-map "\C-e" 'ess-debug-toggle-error-action)
+    (define-key ess-dev-map "e" 'ess-debug-toggle-error-action)
+    (define-key ess-dev-map "0" 'ess-electric-selection)
+    (define-key ess-dev-map "1" 'ess-electric-selection)
+    (define-key ess-dev-map "2" 'ess-electric-selection)
+    (define-key ess-dev-map "3" 'ess-electric-selection)
+    (define-key ess-dev-map "4" 'ess-electric-selection)
+    (define-key ess-dev-map "5" 'ess-electric-selection)
+    (define-key ess-dev-map "6" 'ess-electric-selection)
+    (define-key ess-dev-map "7" 'ess-electric-selection)
+    (define-key ess-dev-map "8" 'ess-electric-selection)
+    (define-key ess-dev-map "9" 'ess-electric-selection)
     (define-key ess-dev-map "?" 'ess-tracebug-show-help)
     ess-dev-map)
   "Keymap for commands related to development and debugging.")
-
 
 (easy-menu-define ess-roxygen-menu nil
   "Roxygen submenu."
@@ -107,28 +113,27 @@
     ["Preview HTML"      ess-roxy-preview-HTML                  t]
     ["Preview text"      ess-roxy-preview-text                  t]
     ["Hide all"          ess-roxy-hide-all                      t]
-    ["Toggle Roxygen Prefix"     ess-roxy-toggle-roxy-region    t]
-    ))
+    ["Toggle Roxygen Prefix"     ess-roxy-toggle-roxy-region    t]))
 
 (easy-menu-define ess-tracebug-menu nil
   "Tracebug submenu."
   '("Tracebug"
     :visible (and ess-dialect (string-match "^R" ess-dialect))
     ;; :enable ess-local-process-name
-    ["Active?"          ess-toggle-tracebug
+    ["Active?"  ess-toggle-tracebug
      :style toggle
-     :selected (and ess-local-process-name
-                    (get-process ess-local-process-name)
-                    (ess-process-get 'tracebug))]
-    ["Show traceback" ess-show-R-traceback ess-local-process-name]
-    ["Watch" ess-watch  (and ess-local-process-name
-                             (get-process ess-local-process-name)
+     :selected (or (and (ess-process-live-p)
+                        (ess-process-get 'tracebug))
+                   ess-use-tracebug)]
+    ["Show traceback" ess-show-traceback (ess-process-live-p)]
+    ["Show call stack" ess-show-call-stack (ess-process-live-p)]
+    ["Watch" ess-watch  (and (ess-process-live-p)
                              (ess-process-get 'tracebug))]
-    ["Error action cycle" ess-dbg-toggle-error-action (and ess-local-process-name
+    ["Error action cycle" ess-debug-toggle-error-action (and (ess-process-live-p)
                                                            (ess-process-get 'tracebug))]
     "----"
-    ["Flag for debugging" ess-dbg-flag-for-debugging ess-local-process-name]
-    ["Unflag for debugging" ess-dbg-unflag-for-debugging ess-local-process-name]
+    ["Flag for debugging" ess-debug-flag-for-debugging ess-local-process-name]
+    ["Unflag for debugging" ess-debug-unflag-for-debugging ess-local-process-name]
     "----"
     ["Set BP" ess-bp-set t]
     ["Set conditional BP" ess-bp-set-conditional t]
@@ -138,8 +143,7 @@
     ["Next BP" ess-bp-next t]
     ["Previous BP" ess-bp-previous t]
     "-----"
-    ["About" ess-tracebug-show-help t]
-    ))
+    ["About" ess-tracebug-show-help t]))
 
 (easy-menu-define ess-developer-menu nil
   "Developer submenu."
@@ -147,12 +151,10 @@
     :visible (and ess-dialect (string-match "^R" ess-dialect))
     ["Active?"          ess-toggle-developer
      :style toggle
-     :selected (and ess-local-process-name
-                    (get-process ess-local-process-name)
+     :selected (and (ess-process-live-p)
                     (ess-process-get 'developer))]
     ["Add package" ess-developer-add-package t]
-    ["Remove package" ess-developer-remove-package t]
-    ))
+    ["Remove package" ess-developer-remove-package t]))
 
 (easy-menu-add-item ess-mode-menu nil ess-roxygen-menu "end-dev")
 (easy-menu-add-item ess-mode-menu nil ess-developer-menu "end-dev")
@@ -184,6 +186,8 @@
      (ess-dialect                       . "R")
      (ess-suffix                        . "R")
      (ess-build-tags-command            . "rtags('%s', recursive = TRUE, pattern = '\\\\.[RrSs](rw)?$',ofile = '%s')")
+     (ess-traceback-command             . "local({try(traceback(), silent=TRUE);cat(\n\"---------------------------------- \n\", geterrmessage(), fill=TRUE)})\n")
+     (ess-call-stack-command            . "traceback(1)\n")
      (ess-dump-filename-template        . (ess-replace-regexp-in-string
                                            "S$" ess-suffix ; in the one from custom:
                                            ess-dump-filename-template-proto))
@@ -257,70 +261,6 @@ before ess-site is loaded) for it to take effect.")
   "Functions run in process buffer after the initialization of R
   process.")
 
-(defvar ess--R-injected-code
-  "{
-.help.ESS <-
-   if (getRversion() > '2.10'){ help
-   }else{ function(..., help_type) help(..., htmlhelp= (help_type=='html')) }
-
-assignInNamespace(\".help.ESS\", .help.ESS, ns=asNamespace(\"base\"))
-
-.ess.funargs <- function(object){
-  funname <- deparse(substitute(object))
-  if(getRversion() > '2.14.1'){
-    comp <- compiler::enableJIT(0L)
-    olderr <- getOption('error')
-    options(error=NULL)
-    on.exit({
-      compiler::enableJIT(comp)
-      options(error = olderr)
-    })
-  }
-  fun <- tryCatch(object, error=function(e) NULL) ## works for special objects also
-  if(is.null(fun)) NULL
-  else if(is.function(fun)) {
-    special <- grepl('[:$@[]', funname)
-    args <- if(!special){
-      fundef <- paste(funname, '.default',sep='')
-      do.call('argsAnywhere', list(fundef))
-    }
-
-    if(is.null(args))
-      args <- args(fun)
-    if(is.null(args))
-      args <- do.call('argsAnywhere', list(funname))
-
-    fmls <- formals(args)
-    fmls_names <- names(fmls)
-    fmls <- gsub('\\\"', '\\\\\\\"', as.character(fmls), fixed=TRUE)
-    args_alist <- sprintf(\"'(%s)\", paste(\"(\\\"\", fmls_names, \"\\\" . \\\"\", fmls, \"\\\")\", sep = '', collapse = ' '))
-    allargs <-
-      if(special) fmls_names
-      else tryCatch(gsub('=', '', utils:::functionArgs(funname, ''), fixed = T), error=function(e) NULL)
-    allargs <- sprintf(\"'(\\\"%s\\\")\", paste(allargs, collapse = '\\\" \\\"'))
-    envname <- environmentName(environment(fun))
-    cat(sprintf('(list \\\"%s\\\" %s %s)\\n', envname, args_alist, allargs))
-  }
-}
-
-.ess_get_completions <- function(string, end){
-  if(getRversion() > '2.14.1'){
-    comp <- compiler::enableJIT(0L)
-    olderr <- getOption('error')
-    options(error=NULL)
-    on.exit({options(error = olderr)
-             compiler::enableJIT(comp)})
-  }
-  utils:::.assignLinebuffer(string)
-  utils:::.assignEnd(end)
-  utils:::.guessTokenFromLine()
-  utils:::.completeToken()
-  c(get('token', envir=utils:::.CompletionEnv),
-    utils:::.retrieveCompletions())
-  }
-}
-")
-
 
 ;;;### autoload
 (defun R (&optional start-args)
@@ -370,8 +310,7 @@ to R, put them in the variable `inferior-R-args'."
      (format "(R): version %s\n"
              (ess-get-words-from-vector "as.character(getRversion())\n")))
 
-    (if (ess-current-R-at-least '2.7.0)
-        (ess-command ess--R-injected-code))
+    (ess--inject-code-from-file (format "%sESSR.R" ess-etc-directory))
 
     (when ess-can-eval-in-background
       (ess-async-command-delayed
@@ -382,6 +321,7 @@ to R, put them in the variable `inferior-R-args'."
     (if inferior-ess-language-start
         (ess-eval-linewise inferior-ess-language-start
                            nil nil nil 'wait-prompt))
+
     (with-ess-process-buffer nil
       (run-mode-hooks 'ess-R-post-run-hook))))
 
@@ -718,8 +658,7 @@ If BIN-RTERM-EXE is nil, then use \"bin/Rterm.exe\"."
 If an ESS process is not associated with the buffer, do not try
 to look up any doc strings."
   (interactive)
-  (when (and ess-current-process-name
-             (get-process ess-current-process-name)
+  (when (and (ess-process-live-p)
              (not (ess-process-get 'busy)))
     (let ((funname (or (and ess-eldoc-show-on-symbol ;; aggressive completion
                             (symbol-at-point))
@@ -931,24 +870,24 @@ To be used instead of ESS' completion engine for R versions >= 2.7.0."
 
 (defun ess-ac-objects (&optional no-kill)
   "Get all cached objects"
-  (when ac-prefix
-    (unless no-kill ;; workaround
-      (kill-local-variable 'ac-use-comphist))
-    (if (string-match-p "[]:$@[]" ac-prefix)
-        ;; call proc for objects
-        (cdr (ess-R-get-rcompletions ac-point))
-      ;; else, get the (maybe cached) list of objects
-      (with-ess-process-buffer 'no-error ;; use proc buf alist
-        (ess-when-new-input last-objlist-update
-          (if (and ess-sl-modtime-alist
-                   (not  (process-get *proc* 'sp-for-ac-changed?)))
-              ;; not changes, re-read .GlobalEnv
-              (ess-extract-onames-from-alist ess-sl-modtime-alist 1 'force))
-          ;; reread all objects, but not rda, much faster and not needed anyways
-          (ess-get-modtime-list)
-          (process-put *proc* 'sp-for-ac-changed? nil)
-          )
-        (apply 'append (mapcar 'cddr ess-sl-modtime-alist))))))
+ (let ((aprf ac-prefix))
+   (when aprf
+     (unless no-kill ;; workaround
+       (kill-local-variable 'ac-use-comphist))
+     (if (string-match-p "[]:$@[]" aprf)
+         ;; call proc for objects
+         (cdr (ess-R-get-rcompletions ac-point))
+       ;; else, get the (maybe cached) list of objects
+       (with-ess-process-buffer 'no-error ;; use proc buf alist
+         (ess-when-new-input last-objlist-update
+           (if (and ess-sl-modtime-alist
+                    (not  (process-get *proc* 'sp-for-ac-changed?)))
+               ;; not changes, re-read .GlobalEnv
+               (ess-extract-onames-from-alist ess-sl-modtime-alist 1 'force))
+           ;; reread all objects, but not rda, much faster and not needed anyways
+           (ess-get-modtime-list)
+           (process-put *proc* 'sp-for-ac-changed? nil))
+         (apply 'append (mapcar 'cddr ess-sl-modtime-alist)))))))
 
 
 (defun ess-ac-start-objects ()
@@ -975,7 +914,8 @@ To be used instead of ESS' completion engine for R versions >= 2.7.0."
   (let ((buf (get-buffer-create " *ess-command-output*")))
     (when (string-match ":+\\(.*\\)" sym)
       (setq sym (match-string 1 sym)))
-    (ess-command (format inferior-ess-help-command sym) buf)
+    (ess-with-current-buffer buf
+      (ess--flush-help-into-current-buffer sym))
     (with-current-buffer buf
       (ess-help-underline)
       (goto-char (point-min))

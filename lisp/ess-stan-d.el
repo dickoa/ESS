@@ -1,8 +1,8 @@
 ;;; ess-stan-d.el --- ESS[STAN] dialect
 
-;; Copyright (C) 2008-2011 Rodney Sparapani
+;; Copyright (C) 2008-2013 ESS Core Team
 
-;; Author: Ahmadou H. Dicko (based on )
+;; Author: Ahmadou H. Dicko (based on ess-bugs-d.el)
 ;; Created: 10 March 2013
 ;; Maintainer: ESS-help <ess-help@r-project.org>
 

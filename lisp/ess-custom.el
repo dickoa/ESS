@@ -133,7 +133,7 @@
   :prefix "ess-")
 ;; Variables (not user-changeable)
 
-(defvar ess-version "13.03" ;; updated by 'make'
+(defvar ess-version "13.05" ;; updated by 'make'
   "Version of ESS currently loaded.")
 
 (defvar ess-revision nil ;; set
@@ -518,21 +518,21 @@ buffer or end chunks etc.
 
 (defcustom ess-S-assign " <- "
   "String used for left assignment in all S dialects.
- Used by \\[ess-smart-underscore]."
+ Used by \\[ess-smart-S-assign]."
   :group 'ess-S
   :type 'string)
 
-(defcustom ess-smart-underscore-key "_"
-  "Key used by `ess-smart-underscore'. By default bound to
-underscore, hence the name, but can be set to any key. If this
-key is customized, you must add 
+(defcustom ess-smart-S-assign-key "_"
+  "Key used by `ess-smart-S-assign'. By default bound to
+underscore, but can be set to any key. If this key is customized,
+you must add
 
- (ess-toggle-underscore nil)
- (ess-toggle-underscore nil) 
+ (ess-toggle-S-assign nil)
+ (ess-toggle-S-assign nil)
 
 after the line that sets the customization and evaluate these
 lines or reboot emacs. The first call clears the default
-`ess-smart-underscore' assignment and the second line re-assigns
+`ess-smart-S-assign' assignment and the second line re-assigns
 it to the customized setting. "
   :group 'ess-S
   :type 'character)
@@ -1679,6 +1679,9 @@ Set to nil if language doesn't support secondary prompt.")
 (make-variable-buffer-local 'inferior-ess-secondary-prompt)
 ;; (setq-default inferior-ess-secondary-prompt "+ ")
 
+(defvar ess-traceback-command nil
+  "Command to generate error traceback.")
+
 ;; need to recognise  + + + > > >
 ;; and "+ . + " in tracebug prompt
 (defcustom inferior-S-prompt "[]a-zA-Z0-9.[]*\\([>+.] \\)*> "
@@ -1828,7 +1831,7 @@ This format string should use %s to substitute an object name.")
 (setq-default inferior-ess-help-command "help(\"%s\")\n")
 
 
-(defcustom inferior-ess-r-help-command ".help.ESS(\"%s\", help_type=\"text\")\n"
+(defcustom inferior-ess-r-help-command ".ess_help(\"%s\", help_type=\"text\")\n"
   "Format-string for building the R command to ask for help on an object.
 
 This format string should use %s to substitute an object name.
@@ -1868,7 +1871,8 @@ Really set in <ess-lang>-customize-alist in ess[dl]-*.el")
 ;;   :group 'ess-command
 ;;   :type 'string)
 
-(defcustom inferior-ess-safe-names-command "try(print(names(%s), max=1e6), silent=TRUE)\n"
+(defcustom inferior-ess-safe-names-command
+  "tryCatch(base::print(base::names(%s), max=1e6), error=function(e){})\n"
   "Format string for ESS command to extract names from an object *safely*.
 
 %s is replaced by an \"object name\" -- usually a list or data frame, but in R also
@@ -2425,7 +2429,7 @@ Passed to `ess-execute-dialect-specific' which see. ")
 
 (defvar ess-funargs-command  nil
   "Dialect specific command to return a list of function arguments.
-See `ess-function-arguments' and .ess.funargs command in R and
+See `ess-function-arguments' and .ess_funargs command in R and
 S+ for details of the format that should be returned.")
 (make-variable-buffer-local 'ess-funargs-command)
 
@@ -2484,6 +2488,10 @@ Defaults to `ess-S-non-functions'."
   ;; a "typical unix-alike installation"
   "Path to julia-release-basic executable"
   :group 'ess-Julia)
+
+(defvar julia-basic-offset 4
+  "Offset for julia code editing")
+
 
 
  ; ess-mode: editing S source
