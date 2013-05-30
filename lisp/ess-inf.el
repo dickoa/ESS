@@ -246,13 +246,6 @@ Alternatively, it can appear in its own frame if
       ;;  (format "(inf-ess finish [%s(%s), %s(%s)]\n"
       ;;          ess-language ess-dialect inferior-ess-program ess-local-process-name))
 
-      ;; Set up history file
-      (if ess-history-file
-          (if (eq t ess-history-file)
-              (setq ess-history-file (concat "." ess-dialect "history"))
-            ;; otherwise must be a string "..."
-            (unless (stringp ess-history-file)
-              (error "`ess-history-file' must be nil, t, or a string"))))
 
       ;; initialize.
       (if startdir (setq default-directory startdir))
@@ -325,11 +318,22 @@ there is no process NAME)."
         (setq ess-local-process-name proc-name)
         (goto-char (point-max))
         ;; load past history
+
+        ;; Set up history file
+        (if ess-history-file
+            (if (eq t ess-history-file)
+                (set (make-variable-buffer-local 'ess-history-file)
+                     (concat "." ess-dialect "history"))
+              ;; otherwise must be a string "..."
+              (unless (stringp ess-history-file)
+                (error "`ess-history-file' must be nil, t, or a string"))))
+
         (when ess-history-file
           (setq comint-input-ring-file-name
                 (expand-file-name ess-history-file
                                   (or ess-history-directory ess-directory)))
           (comint-read-input-ring))
+        
         ;; create and run process.
         (ess-write-to-dribble-buffer
          (format "(ess-multi 1):  start-args=%s \n"
@@ -1455,6 +1459,15 @@ local({
           (set-marker (process-mark sprocess) oldpm))))
     buf))
 
+(defun ess-boolean-command (com &optional buf)
+  "Like `ess-command' but expects COM to print TRUE or FALSE.
+If TRUE (or true) is found return non-nil otherwise nil.
+
+Example: (ess-boolean-command \"2>1\n\")"
+  (with-current-buffer (ess-command com buf)
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (re-search-forward "true" nil t))))
 
 (defun ess-replace-in-string (str regexp newtext &optional literal)
   "Replace all matches in STR for REGEXP with NEWTEXT string.

@@ -133,7 +133,7 @@
   :prefix "ess-")
 ;; Variables (not user-changeable)
 
-(defvar ess-version "13.05" ;; updated by 'make'
+(defvar ess-version "13.05-1" ;; updated by 'make'
   "Version of ESS currently loaded.")
 
 (defvar ess-revision nil ;; set
@@ -818,10 +818,11 @@ these values, use the customize interface."
          (set symbol value)
          (ess-add-style 'OWN value)))
 
-(defcustom ess-default-style 'DEFAULT
+(defcustom ess-default-style 'RRR
   "The default value of `ess-style'.
-See the variable `ess-style-alist' for how these groups (DEFAULT,
-OWN, GNU, BSD, ...) map onto different settings for variables."
+See the variable `ess-style-alist' for how these groups (RRR, DEFAULT,
+OWN, GNU, BSD, ...) map onto different settings for variables.
+Since ESS 13.05, the default is  RRR  rather than DEFAULT."
   :type '(choice (const DEFAULT)
                  (const OWN)
                  (const GNU)
@@ -2432,6 +2433,10 @@ Passed to `ess-execute-dialect-specific' which see. ")
 See `ess-function-arguments' and .ess_funargs command in R and
 S+ for details of the format that should be returned.")
 (make-variable-buffer-local 'ess-funargs-command)
+
+(defvar ess-eldoc-function nil
+  "Holds a dialect specific eldoc function,
+See `ess-R-eldoc-function' and `ess-julia-eldoc-function' for examples.")
 
 (defcustom ess-r-args-noargsmsg "No args found."
   "Message returned if \\[ess-r-args-get] cannot find a list of arguments."
