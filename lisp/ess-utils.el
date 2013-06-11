@@ -850,7 +850,8 @@ EXIT-FORM should be supplied for a more refined control of the
 read-even loop. The loop is exited when EXIT-FORM evaluates to
 t. See examples in the tracebug code.
 "
-  
+  ;;VS[09-06-2013]: check: it seems that set-temporary-overlay-map is designed
+  ;;for this type of things; see also repeat.el package.
   `(let* ((ev last-command-event)
           (command (lookup-key ,map (vector ev)))
           out exit )
@@ -874,7 +875,7 @@ t. See examples in the tracebug code.
 
 -- If command is not defined issue warning 'Not availabe for dialect X'
 -- if a function, execute it with ARGS
--- If a string strarting with 'http' or 'www' browse with `browse-url',
+-- If a string starting with 'http' or 'www', browse with `browse-url',
    otherwise execute the command in inferior process.
 
 When command is a string ARGS are substituted by (format ,command ,@args).
@@ -909,8 +910,7 @@ to `ess-completing-read'.
               (setq com (apply 'format com args))
               (ess-eval-linewise com))
              (t
-              (error "Argument COMMAND must be either a function or a string")))))
-  )
+              (error "Argument COMMAND must be either a function or a string"))))))
 
 
 

@@ -230,8 +230,10 @@ See also `tooltip-hide-delay' and `tooltip-delay'.
     ("tail(%s, n = 40)")
     ("summary(%s)"))
   "A list of commands cycled by `ess-describe-object-at-point'.
-%s is substituted with the name at point. The value of the
- aliment is not used as yet and has no effect."
+%s is substituted with the name at point.
+
+The value of each element is nil and is not used in current
+implementation."
   :group 'R
   :type 'alist)
 
@@ -1218,7 +1220,11 @@ directory in which \"R/\" is located.  For example, setting
 `ess-directory-containing-R' to \"c:\" will tell ESS to search
 for R versions with pathnames of the form \"c:/R/R-x.y.z\".
 
-Currently only used when `ess-microsoft-p'."
+Currently only used when `ess-microsoft-p'.  If you change the
+value of this variable, you need to restart Emacs for it to take
+effect.  It also needs to be set before you load ess-site as its
+value is used once only when ESS is loaded."
+
   :group 'ess
   :type 'directory)
 
@@ -1806,14 +1812,21 @@ status.
 
 ;;*;; Inferior ESS commands
 
-(defcustom inferior-ess-load-command "source(\"%s\")\n"
-  "Format-string for building the ess command to load a file.
+(defvar ess-load-command "source(\"%s\")\n"
+  "Dialect specific format-string for building the ess command to load a file.
 
 This format string should use %s to substitute a file name and should
 result in an ESS expression that will command the inferior ESS to load
-that file."
-  :group 'ess-command
-  :type 'string)
+that file.")
+(define-obsolete-variable-alias 'inferior-ess-load-command 'ess-load-command "ESS v13.09")
+
+(defvar ess-load-visibly-command nil
+  "Dialect specific format-string for building the ess command to
+  load a file with echo.")
+
+(defvar ess-load-visibly-noecho-command nil
+  "Dialect specific format-string for building the ess command to
+load a file with visible output but no echo.")
 
 (defcustom inferior-ess-dump-command "dump(\"%s\",file=\"%s\")\n"
   "Format-string for building the ess command to dump an object into a file.

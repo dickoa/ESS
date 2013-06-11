@@ -189,6 +189,9 @@
      (ess-build-tags-command            . "rtags('%s', recursive = TRUE, pattern = '\\\\.[RrSs](rw)?$',ofile = '%s')")
      (ess-traceback-command             . "local({try(traceback(), silent=TRUE);cat(\n\"---------------------------------- \n\", geterrmessage(), fill=TRUE)})\n")
      (ess-call-stack-command            . "traceback(1)\n")
+     (ess-load-command                  . "invisible(source(\"%s\", local=TRUE, keep.source=TRUE)$value)\n") ;; return correct value for org-babel
+     (ess-load-visibly-command          . "source('%s', local=TRUE, echo=TRUE, keep.source=TRUE, max.deparse.length = 300)\n")
+     (ess-load-visibly-noecho-command   . "source('%s', local=TRUE, print.eval = TRUE, keep.source=TRUE, max.deparse.length = 300)\n")
      (ess-dump-filename-template        . (ess-replace-regexp-in-string
                                            "S$" ess-suffix ; in the one from custom:
                                            ess-dump-filename-template-proto))
@@ -299,7 +302,9 @@ to R, put them in the variable `inferior-R-args'."
       (setq use-dialog-box nil)
       (if ess-microsoft-p ;; default-process-coding-system would break UTF locales on Unix
           (setq default-process-coding-system '(undecided-dos . undecided-dos))))
+    
     (inferior-ess r-start-args) ;; -> .. (ess-multi ...) -> .. (inferior-ess-mode) ..
+    
     (ess-process-put 'funargs-pre-cache ess-R--funargs-pre-cache)
     ;;-------------------------
     (setq comint-input-sender 'inferior-R-input-sender)
