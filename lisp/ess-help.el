@@ -564,14 +564,20 @@ For internal use. Used in `ess-display-help-on-object',
       window)))
 
 
-
 (defun ess-help-web-search ()
   "Search the web for documentation"
   (interactive)
   (ess-execute-dialect-specific ess-help-web-search-command "Search for: "))
 
-;;*;; Major mode definition
+(defun ess-manual-lookup ()
+  "Search manual for topic"
+  (interactive)
+  (ess-execute-dialect-specific ess-manual-lookup-command ))
 
+(defun ess-reference-lookup ()
+  "Search manual for topic"
+  (interactive)
+  (ess-execute-dialect-specific ess-reference-lookup-command))
 
 (defvar ess-help-sec-map nil "Sub-keymap for ESS help mode.")
 ;; this breaks "s ?" rather than to fix any (unbroken !) thing:
@@ -596,6 +602,10 @@ For internal use. Used in `ess-display-help-on-object',
     (define-key ess-doc-map "o" 'ess-display-demos)
     (define-key ess-doc-map "\C-w" 'ess-help-web-search)
     (define-key ess-doc-map "w" 'ess-help-web-search)
+    (define-key ess-doc-map "\C-m" 'ess-manual-lookup)
+    (define-key ess-doc-map "m" 'ess-manual-lookup)
+    (define-key ess-doc-map "\C-r" 'ess-reference-lookup)
+    (define-key ess-doc-map "r" 'ess-reference-lookup)
     ess-doc-map
     )
   "ESS documentaion map.")
@@ -933,8 +943,7 @@ specific.")
   "Get info for object at point, and display it in an electric buffer or tooltip.
 This is an electric command (see `ess--execute-electric-command').
 
-If region is active (`region-active-p') use it instead of the
-object at point.
+If region is active use it instead of the object at point.
 
 After invocation of this command, all standard emacs commands,
 except those containing 'window' in their names, remove the
@@ -952,7 +961,7 @@ option for other dialects).
       (message "Not implemented for dialect %s" ess-dialect)
     (ess-force-buffer-current)
     (let ((map (make-sparse-keymap))
-          (objname (or (and (region-active-p)
+          (objname (or (and (use-region-p)
                             (buffer-substring-no-properties (point) (mark)))
                        (symbol-at-point)))
           bs ess--descr-o-a-p-commands) ;; used in ess--describe-object-at-point

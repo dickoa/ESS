@@ -47,9 +47,6 @@
   "Face to highlight mode line process name when developer mode is on."
   :group 'ess-developer)
 
-(defvar ess--developer-local-indicator (propertize "d" 'face 'ess-developer-indicator-face))
-(put 'ess--developer-local-indicator 'risky-local-variable t)
-
 (defcustom ess-developer-packages nil
   "List of names of R packages you develop.
 Use `ess-developer-add-package' to modify interactively this
@@ -100,7 +97,7 @@ See also `ess-developer-load-package' for related functionality."
   :group 'ess-developer
   :type 'alist)
 
-(defvar ess--developer-load-hist nil)
+(defvar ess-developer--load-hist nil)
 
 (defun ess-developer-add-package (&optional attached-only)
   "Add a package to `ess-developer-packages' list.
@@ -110,7 +107,7 @@ With prefix argument only choose from among attached packages."
   (let* ((packs (ess-get-words-from-vector
                  (format "print(unique(c(.packages(), %s)), max=1e6)\n"
                          (if attached-only "NULL" ".packages(TRUE)") nil t)))
-         (cur-pack (ess--developer-containing-package))
+         (cur-pack (ess-developer--get-package-name))
          (sel (ess-completing-read "Add package" packs nil nil nil nil
                                    (unless (member cur-pack ess-developer-packages)
                                      cur-pack)))
@@ -119,13 +116,14 @@ With prefix argument only choose from among attached packages."
       (let* ((fn (if (> (length ess-developer-load-on-add-commands) 1)
                      (ess-completing-read "Package not loaded. Use"
                                           (mapcar 'car ess-developer-load-on-add-commands) nil t
-                                          nil 'ess--developer-load-hist (car ess--developer-load-hist))
+                                          nil 'ess-developer--load-hist
+                                          (car ess-developer--load-hist))
                    (caar ess-developer-load-on-add-commands)))
              (cmd (cdr (assoc fn ess-developer-load-on-add-commands))))
         (setq cmd (replace-regexp-in-string "%n" sel cmd))
         (when (string-match-p "%d" cmd)
           (let ((dir (read-directory-name
-                      "Package: " (ess--developer-locate-package-path sel) nil t nil)))
+                      "Package: " (ess-developer--get-package-path sel) nil t nil)))
             (setq cmd (replace-regexp-in-string "%d" dir cmd))))
         (ess-eval-linewise (concat cmd "\n")))
       (ess-wait-for-process)
@@ -180,7 +178,7 @@ otherwise call devSource."
                     (format ".essDev_source(source='%s',package='%s')" filename env))))
       (when (buffer-modified-p) (save-buffer))
       (message "devSourcing '%s' ..." file)
-      (ess--developer-command comm 'ess--developer-propertize-output))))
+      (ess-developer--command comm 'ess-developer--propertize-output))))
 
 (defun ess-developer-send-function (proc beg end name &optional visibly message tracebug)
   (save-excursion
@@ -206,15 +204,15 @@ otherwise call devSource."
             (unless assigned-p
               (ess-developer-send-region-fallback proc beg end visibly message tracebug))))))))
 
-(defvar ess--developer-hist nil)
+(defvar ess-developer--hist nil)
 
 (defun ess-developer-send-region (proc beg end &optional visibly message tracebug)
   "Ask for for the package and devSource region into it."
   (let* ((all-packs (append ess-developer-packages (list "*current*" )))
-         (default (car (member (car ess--developer-hist) all-packs)))
+         (default (car (member (car ess-developer--hist) all-packs)))
          (package
           (ess-completing-read "devEval into" all-packs
-                               nil t nil 'ess--developer-hist default)))
+                               nil t nil 'ess-developer--hist default)))
     (message  (if message (format "dev%s ..." message)))
     (if (equal package "*current*")
         (ess-developer-send-region-fallback proc beg end visibly message tracebug)
@@ -226,10 +224,10 @@ otherwise call devSource."
           (format ".essDev_source(source='%s',package='%s')" "%s" package))
          (ess-load-visibly-noecho-command ess-load-command))
     (if message (message message))
-    (ess--developer-command (ess--make-source-refd-command beg end)
-                            'ess--developer-propertize-output)))
+    (ess-developer--command (ess--make-source-refd-command beg end)
+                            'ess-developer--propertize-output)))
 
-(defun ess--developer-command (comm &optional propertize-func)
+(defun ess-developer--command (comm &optional propertize-func)
   "Evaluate the command and popup a message with the output if succed.
 On error  insert the error at the end of the inferior-ess buffer.
 
@@ -237,7 +235,7 @@ PROPERTIZE-FUNC is a function called with the output buffer being
 current. usually used to manipulate the output, for example to
 propertize output text.
 "
-  (ess--developer-inject-source-maybe) ; first time only
+  (ess-developer--inject-source-maybe) ; first time only
   (setq comm (format "eval({cat('\\n')\n%s\ncat('!@OK@!')})\n" comm))
   (let ((buff (get-buffer-create " *ess-command-output*"))
         out)
@@ -255,7 +253,7 @@ propertize output text.
                                                              (1- (point))))))
         (message "%s" (buffer-substring-no-properties (point-min) (point-max)))))))
 
-(defun ess--developer-propertize-output ()
+(defun ess-developer--propertize-output ()
   (goto-char (point-min))
   (while (re-search-forward "\\(FUN\\|CLS\\METH\\)\\[" nil t)
     (put-text-property (match-beginning 1) (match-end 1)
@@ -265,22 +263,16 @@ propertize output text.
     (put-text-property (match-beginning 1) (match-end 1)
                        'face 'font-lock-keyword-face)))
 
-(defvar ess--developer-package-root nil)
-(make-variable-buffer-local 'ess--developer-package-root)
+(defvar ess-developer--pack-name nil)
+(make-variable-buffer-local 'ess-developer--pack-name)
 
-(defun ess--developer-containing-package ()
-  "Return the name of the container package, or nil if not found.
-Currently works for R only and looks at /R/ parent directory."
-  (let ((path (directory-file-name default-directory)))
-    (when (string-equal "R" (file-name-nondirectory path))
-      (file-name-nondirectory (directory-file-name (file-name-directory path))))))
-
-(defun ess--developer-locate-package-path (&optional pack-name)
+(defun ess-developer--get-package-path (&optional pack-name)
   "Get the root of R package that contains current directory.
 Root is determined by locating `ess-developer-root-file'.
 
 If PACK-NAME is given, iterate over default-directories of all
-open R files till package with name pack-name is found (if any)."
+open R files till package with name pack-name is found. If not
+found, return nil."
   (if pack-name
       (let ((bl (buffer-list))
             path bf)
@@ -288,23 +280,38 @@ open R files till package with name pack-name is found (if any)."
                     (not path))
           (when (buffer-local-value 'ess-dialect bf)
             (with-current-buffer bf
-              (setq path (ess--developer-locate-package-path)))))
+              (setq path (ess-developer--get-package-path))
+              (unless ess-developer--pack-name
+                (setq ess-developer--pack-name ;; cache locally 
+                      (ess-developer--get-package-name path)))
+              (unless (equal ess-developer--pack-name pack-name)
+                (setq path nil)))))
         path)
     (let ((path default-directory)
           package)
-      (while (and (not package) (> (length path) 0))
+      (while (and (not package) (> (length path) 1))
         (if (file-exists-p (expand-file-name ess-developer-root-file path))
             (setq package path)
           (setq path (file-name-directory (directory-file-name path)))))
-      ;; cache locally
-      (when path
-        (setq ess--developer-package-root path))
-      path)))
+      package)))
 
+
+(defun ess-developer--get-package-name (&optional path)
+  "Find package name in path. Parses DESCRIPTION file in PATH (R
+specific so far). PATH defaults to `default-directory'"
+  (when (setq path (or path (ess-developer--get-package-path)))
+    (let ((file (expand-file-name ess-developer-root-file path))
+          (case-fold-search t)
+          (find-file-literally t))
+      (when (file-exists-p file)
+        (with-current-buffer (find-file-noselect file t t)
+          (goto-char (point-min))
+          (re-search-forward "package: \\(.*\\)")
+          (match-string 1))))))
 
 (defun ess-developer-activate-in-package (&optional package all)
-  "Activate developer if current file is part of the package and
-package name is registered in `ess-developer-packages'.
+  "Activate developer if current file is part of a package which
+is registered in `ess-developer-packages'.
 
 If PACKAGE is given, activate only if current file is part of the
 PACKAGE, `ess-developer-packages' is ignored in this case.
@@ -318,14 +325,16 @@ is nil. "
         (dolist (bf (buffer-list))
           (with-current-buffer bf
             (ess-developer-activate-in-package package)))
-      (let ((pack (ess--developer-containing-package)))
-        (when (and (not ess-developer)
+      (let ((pack (ess-developer--get-package-name)))
+        (when (and buffer-file-name
+                   pack
+                   (not ess-developer)
                    (if package
                        (equal pack package)
                      (member pack ess-developer-packages)))
           (ess-developer t))))))
 
-(add-hook 'R-mode-hook 'ess-developer-activate-in-package)
+;; (add-hook 'R-mode-hook 'ess-developer-activate-in-package)
 
 (defun ess-developer-deactivate-in-package (&optional package all)
   "Deactivate developer if current file is part of the R package.
@@ -338,7 +347,7 @@ If ALL is non-nil, deactivate in all open R buffers."
       (dolist (bf (buffer-list))
         (with-current-buffer bf
           (ess-developer-deactivate-in-package package)))
-    (let ((pack (ess--developer-containing-package)))
+    (let ((pack (ess-developer--get-package-name)))
       (when (and ess-developer
                  (or (null package)
                      (equal pack package)))
@@ -348,8 +357,11 @@ If ALL is non-nil, deactivate in all open R buffers."
   "Interface to load_all function in devtools package.
 See also `ess-developer-load-all-command'."
   (interactive)
-  (let ((package (ess--developer-locate-package-path)))
-    (setq package (read-directory-name "Package: " package nil t nil))
+  (let ((package (ess-developer--get-package-path)))
+    (unless (and package ess-developer)
+      ;; ask only when not obvious
+      (setq package
+            (read-directory-name "Package: " package nil t nil)))
     (unless (file-exists-p (expand-file-name ess-developer-root-file package))
       (error "Not a valid package. No '%s' found in `%s'."
              ess-developer-root-file package))
@@ -361,7 +373,7 @@ See also `ess-developer-load-all-command'."
   "Non nil in buffers where developer mode is active")
 (make-variable-buffer-local 'ess-developer)
 
-(defun ess--developer-inject-source-maybe ()
+(defun ess-developer--inject-source-maybe ()
   ;; puting this into ESSR.R makes loading very slow
   ;; when ESSR is a package, this should go away
   (let ((devR-file (concat (file-name-directory ess-etc-directory)
@@ -383,10 +395,7 @@ VAL is negative turn it off."
   (when (eq val t) (setq val 1))
   (let ((ess-dev  (if (numberp val)
                       (if (< val 0) nil t)
-                    (not (or ess-developer
-                             ;; if t in proc buffer, all associated buffers are in dev-mode
-                             (and (ess-process-live-p)
-                                  (ess-get-process-variable 'ess-developer)))))))
+                    (not ess-developer))))
     (if ess-dev
         (progn
           (run-hooks 'ess-developer-enter-hook)
@@ -394,20 +403,36 @@ VAL is negative turn it off."
               (message "You are developing: %s" ess-developer-packages)
             (message "Developer is on (add packages with C-c C-t a)")))
       (run-hooks 'ess-developer-exit-hook)
-      (message "Developer is off"))
+      (message "%s developer is off" (if (get-buffer-process (current-buffer))
+                                              "Global"
+                                            "Local")))
 
-    (setq ess-developer ess-dev)
+    (setq ess-developer ess-dev))
+    (force-window-update))
 
-    (if (get-buffer-process (current-buffer)) ; in ess process
-        (setq ess-local-process-name
-              (if ess-dev
-                  (propertize ess-local-process-name 'face 'ess-developer-indicator-face)
-                (propertize  ess-local-process-name 'face nil)))
-      (if ess-dev
-          (add-to-list 'ess--local-mode-line-process-indicator 'ess--developer-local-indicator 'append)
-        (delq 'ess--developer-local-indicator ess--local-mode-line-process-indicator)))
 
-    (force-window-update)))
+
+;;; MODELINE
+
+(defvar ess-developer--local-indicator 
+  '(""
+    (:eval
+     ;; process has priority
+     (if (and (ess-process-live-p)
+              (ess-get-process-variable 'ess-developer))
+         (propertize " D" 'face 'ess-developer-indicator-face)
+       (if ess-developer
+           (propertize " d" 'face 'ess-developer-indicator-face)
+         "")))))
+(put 'ess-developer--local-indicator 'risky-local-variable t)
+
+(defun ess-developer-setup-modeline ()
+  (add-to-list 'ess--local-mode-line-process-indicator
+               'ess-developer--local-indicator 'append))
+
+(add-hook 'R-mode-hook 'ess-developer-setup-modeline)
+(add-hook 'inferior-ess-mode-hook 'ess-developer-setup-modeline)
+
 
 (defalias 'ess-toggle-developer 'ess-developer)
 

@@ -347,8 +347,11 @@ there is no process NAME)."
            (inferior-ess-make-comint buf-name-str
                                      proc-name
                                      inf-ess-start-args)))
+
+        ;; set accumulation buffer name (buffer to cache output for faster display)
         (process-put (get-process proc-name) 'accum-buffer-name
                      (format " *%s:accum*" proc-name))
+        
         ;; Set the process sentinel to save the history
         (set-process-sentinel (get-process proc-name) 'ess-process-sentinel)
         ;; Add this process to ess-process-name-list, if needed
@@ -372,6 +375,12 @@ there is no process NAME)."
         ;; arguments cache
         (ess-process-put 'funargs-cache (make-hash-table :test 'equal))
         (ess-process-put 'funargs-pre-cache nil)
+        
+        ;; don't font-lock strings over process prompt
+        (set (make-local-variable 'syntax-begin-function)
+             #'inferior-ess-goto-last-prompt)
+        (set (make-local-variable 'font-lock-fontify-region-function)
+             #'inferior-ess-fontify-region)
 
         (run-hooks 'ess-post-run-hook)
 
@@ -387,6 +396,36 @@ there is no process NAME)."
         (if (and inferior-ess-same-window (not inferior-ess-own-frame))
             (switch-to-buffer buff)
           (pop-to-buffer buff))))))
+
+(defun inferior-ess-goto-last-prompt ()
+  (let ((paragraph-start comint-prompt-regexp))
+    (forward-paragraph -1)
+    ;; (comint-skip-prompt)
+    (point)))
+
+(defun inferior-ess-fontify-region (beg end &optional verbose)
+  "Fontify output by output within the beg-end region to avoid
+fontification spilling over prompts."
+  (let* ((buffer-undo-list t)
+	 (inhibit-point-motion-hooks t)
+         (font-lock-dont-widen t)
+         (buff (current-buffer))
+         (pos (inferior-ess-goto-last-prompt)) ; expand to last prompt
+         (pos2))
+    (with-silent-modifications
+      ;; (dbg pos end)
+      (font-lock-unfontify-region pos end)
+      (while (< pos end)
+        (goto-char pos)
+        (comint-next-prompt 1)
+        (setq pos2 (min (point) end))
+        (save-restriction
+          (narrow-to-region pos pos2)
+          ;; (redisplay)
+          ;; (sit-for 1)
+          (font-lock-default-fontify-region pos pos2 verbose))
+        (setq pos pos2)))
+    ))
 
 (defun ess-gen-proc-buffer-name:simple (proc-name)
   "Function to generate buffer name by wrapping PROC-NAME in *proc-name*"
@@ -886,7 +925,7 @@ there is only one process running."
   (interactive)
   (ess-force-buffer-current "Process to use: " 'force nil 'ask-if-1))
 
-(defun ess-get-next-available-process (&optional dialect)
+(defun ess-get-next-available-process (&optional dialect ignore-busy)
   "Return first availabe (aka not busy) process of dialect DIALECT.
 DIALECT defaults to the local value of ess-dialect. Return nil if
 no such process has been found."
@@ -902,7 +941,8 @@ no such process has been found."
                       (process-live-p proc)
                       (equal dialect
                              (buffer-local-value 'ess-dialect (process-buffer proc)))
-                      (not (process-get proc 'busy)))
+                      (or ignore-busy
+                          (not (process-get proc 'busy))))
              (throw 'found proc))))))))
 
 
@@ -2323,7 +2363,10 @@ to continue it."
   (setq major-mode 'inferior-ess-mode)
   (setq mode-name "iESS")               ;(concat "iESS:" ess-dialect))
   (setq mode-line-process
-        '(" [" ess-mode-line-indicator "]: %s"))
+        '(" ["
+          ess--mode-line-process-indicator
+          ess--local-mode-line-process-indicator
+          "]: %s"))
   (use-local-map inferior-ess-mode-map)
   (if ess-mode-syntax-table
       (set-syntax-table ess-mode-syntax-table)
@@ -2367,9 +2410,7 @@ to continue it."
       (progn
         (remove-hook 'completion-at-point-functions 'comint-completion-at-point t) ;; reset the thook
         (add-hook 'completion-at-point-functions 'comint-c-a-p-replace-by-expanded-history nil 'local)
-        (add-hook 'completion-at-point-functions 'ess-object-completion nil 'local) ;;only for R, is it ok?
-        (add-hook 'completion-at-point-functions 'ess-filename-completion nil 'local)
-        )
+        (add-hook 'completion-at-point-functions 'ess-filename-completion nil 'local))
     (add-hook 'comint-dynamic-complete-functions
               'ess-complete-filename 'append 'local)
     (add-hook 'comint-dynamic-complete-functions ;; only for R, is it ok?
@@ -2435,11 +2476,12 @@ to continue it."
 (defconst inferior-R--input-help (format "^ *help *(%s)" ess-help-arg-regexp))
 ;; (defconst inferior-R-2-input-help (format "^ *\\? *%s" ess-help-arg-regexp))
 (defconst inferior-R--input-?-help-regexp
-  "^ *\\(?:\\(?1:[a-zA-Z ]*?\\?\\{1,2\\}\\)\\(?2:.+\\)\\)") ; "\\?\\{1,2\\}\\) *['\"]?\\([^,=)'\"]*\\)['\"]?") ;;catch ??
+  "^ *\\(?:\\(?1:[a-zA-Z ]*?\\?\\{1,2\\}\\) *\\(?2:.+\\)\\)")
 (defconst inferior-R--page-regexp (format "^ *page *(%s)" ess-help-arg-regexp))
 
 (defun ess-R--sanitize-help-topic (string)
-  (if (string-match "\\([^:]*:+\\)\\(.*\\)$" string)
+  ;; enclose help topics into `` to avoid ?while ?if etc hangs
+  (if (string-match "\\([^:]*:+\\)\\(.*\\)$" string) ; treat foo::bar corectly
       (format "%s`%s`" (match-string 1 string) (match-string 2 string))
     (format "`%s`" string)))
 
@@ -2448,8 +2490,7 @@ to continue it."
     (let ((help-match (and (string-match inferior-R--input-help string)
                            (match-string 2 string)))
           (help-?-match (and (string-match inferior-R--input-?-help-regexp string)
-                             (format "%s%s" (match-string 1 string)
-                                     (ess-R--sanitize-help-topic (match-string 2 string)))))
+                             string))
           (page-match   (and (string-match inferior-R--page-regexp string)
                              (match-string 2 string))))
       (cond (help-match
@@ -2457,11 +2498,18 @@ to continue it."
              (process-send-string proc "\n"))
             (help-?-match
              (if (string-match "\\?\\?\\(.+\\)" help-?-match)
-                 (ess--display-indexed-help-page (concat help-?-match "\n") "^\\([^ \t\n]+::[^ \t\n]+\\)[ \t\n]+"
+                 (ess--display-indexed-help-page (concat help-?-match "\n")
+                                                 "^\\([^ \t\n]+::[^ \t\n]+\\)[ \t\n]+"
                                                  (format "*ess-apropos[%s](%s)*"
                                                          ess-current-process-name (match-string 1 help-?-match))
                                                  'appropos)
-               (ess-display-help-on-object help-?-match "%s\n"))
+               (if (string-match "^ *\\? *\\([^:]+\\)$" help-?-match) ; help(foo::bar) doesn't work
+                   (ess-display-help-on-object (match-string 1 help-?-match))
+                 ;; anything else we send to process almost unchanged
+                 (let ((help-?-match (and (string-match inferior-R--input-?-help-regexp string)
+                                          (format "%s%s" (match-string 1 string)
+                                                  (ess-R--sanitize-help-topic (match-string 2 string))))))
+                   (ess-display-help-on-object help-?-match "%s\n"))))
              (process-send-string proc "\n"))
             (page-match
              (switch-to-buffer-other-window
@@ -2735,7 +2783,7 @@ also running \\[ess-cleanup].  For R, runs \\[ess-quit-r], see there."
     (ess-make-buffer-current)
     (let ((sprocess (ess-get-process ess-current-process-name)))
       (if (not sprocess) (error "No ESS process running"))
-      (when (yes-or-no-p (format "Really quit ESS process %s? " sprocess))
+      (when (y-or-n-p (format "Really quit ESS process %s? " sprocess))
         (ess-cleanup)
         (goto-char (marker-position (process-mark sprocess)))
         (insert inferior-ess-exit-command)
@@ -2815,107 +2863,6 @@ before you quit.  It is run automatically by \\[ess-quit]."
   (let ((proc (get-buffer-process (current-buffer))))
     (if (processp proc) (delete-process proc))))
 
-;;*;; Object name completion
-
-;;;*;;; The user completion command
-(defun ess-object-completion ()
-  "Return completions at point in a format required by `completion-at-point-functions'. "
-  (if (ess-make-buffer-current)
-      (let* ((funstart (cdr (ess--funname.start)))
-             (completions (ess-R-get-rcompletions funstart))
-             (token (pop completions)))
-        (when completions
-          (list (- (point) (length token)) (point) completions)))
-    (when (string-match "complete" (symbol-name last-command))
-      (message "No ESS process associated with current buffer")
-      nil)
-    ))
-
-(defun ess-complete-object-name ()
-  "Perform completion on `ess-language' object preceding point.
-Uses \\[ess-R-complete-object-name] when `ess-use-R-completion' is non-nil,
-or \\[ess-internal-complete-object-name] otherwise."
-  (interactive)
-  (if (ess-make-buffer-current)
-      (if ess-use-R-completion
-          (ess-R-complete-object-name)
-        (ess-internal-complete-object-name))
-    ;; else give a message on second invocation
-    (when (string-match "complete" (symbol-name last-command))
-      (message "No ESS process associated with current buffer")
-      nil)
-    ))
-
-(defun ess-complete-object-name-deprecated ()
-  "Gives a deprecated message "
-  (interactive)
-  (ess-complete-object-name)
-  (message "C-c TAB is deprecated, completions has been moved to [M-TAB] (aka C-M-i)")
-  (sit-for 2 t)
-  )
-
-(defun ess-internal-complete-object-name ()
-  "Perform completion on `ess-language' object preceding point.
-The object is compared against those objects known by
-`ess-get-object-list' and any additional characters up to ambiguity are
-inserted.  Completion only works on globally-known objects (including
-elements of attached data frames), and thus is most suitable for
-interactive command-line entry, and not so much for function editing
-since local objects (e.g. argument names) aren't known.
-
-Use \\[ess-resynch] to re-read the names of the attached directories.
-This is done automatically (and transparently) if a directory is
-modified (S only!), so the most up-to-date list of object names is always
-available.  However attached dataframes are *not* updated, so this
-command may be necessary if you modify an attached dataframe."
-  (interactive)
-  (ess-make-buffer-current)
-  (if (memq (char-syntax (preceding-char)) '(?w ?_))
-      (let* ((comint-completion-addsuffix nil)
-             (end (point))
-             (buffer-syntax (syntax-table))
-             (beg (unwind-protect
-                      (save-excursion
-                        (set-syntax-table ess-mode-syntax-table)
-                        (backward-sexp 1)
-                        (point))
-                    (set-syntax-table buffer-syntax)))
-             (full-prefix (buffer-substring beg end))
-             (pattern full-prefix)
-             ;; See if we're indexing a list with `$'
-             (listname (if (string-match "\\(.+\\)\\$\\(\\(\\sw\\|\\s_\\)*\\)$"
-                                         full-prefix)
-                           (progn
-                             (setq pattern
-                                   (if (not (match-beginning 2)) ""
-                                     (substring full-prefix
-                                                (match-beginning 2)
-                                                (match-end 2))))
-                             (substring full-prefix (match-beginning 1)
-                                        (match-end 1)))))
-             ;; are we trying to get a slot via `@' ?
-             (classname (if (string-match "\\(.+\\)@\\(\\(\\sw\\|\\s_\\)*\\)$"
-                                          full-prefix)
-                            (progn
-                              (setq pattern
-                                    (if (not (match-beginning 2)) ""
-                                      (substring full-prefix
-                                                 (match-beginning 2)
-                                                 (match-end 2))))
-                              (ess-write-to-dribble-buffer
-                               (format "(ess-C-O-Name : slots..) : patt=%s"
-                                       pattern))
-                              (substring full-prefix (match-beginning 1)
-                                         (match-end 1)))))
-             (components (if listname
-                             (ess-object-names listname)
-                           (if classname
-                               (ess-slot-names classname)
-                             ;; Default case: It hangs here when
-                             ;;    options(error=recover) :
-                             (ess-get-object-list ess-current-process-name)))))
-        ;; always return a non-nil value to prevent history expansions
-        (or (comint-dynamic-simple-complete  pattern components) 'none))))
 
 (defun ess-list-object-completions nil
   "List all possible completions of the object name at point."
@@ -2997,7 +2944,7 @@ If exclude-first is non-nil, don't return objects in first positon (.GlobalEnv).
             (setq i (1+ i)))
           (setq ess-object-list (ess-uniq-list result))))))
 
-(defun ess-get-words-from-vector (command &optional no-prompt-check wait)
+(defun ess-get-words-from-vector (command &optional no-prompt-check wait proc)
   "Evaluate the S command COMMAND, which returns a character vector.
 Return the elements of the result of COMMAND as an alist of
 strings.  COMMAND should have a terminating newline. WAIT is
@@ -3012,7 +2959,7 @@ local({ out <- try({%s}); print(out, max=1e6) })\n
                   " *ess-get-words*")); initial space: disable-undo
         words)
     (ess-if-verbose-write (format "ess-get-words*(%s).. " command))
-    (ess-command command tbuffer 'sleep no-prompt-check wait)
+    (ess-command command tbuffer 'sleep no-prompt-check wait proc)
     (ess-if-verbose-write " [ok] ..")
     (with-current-buffer tbuffer
       (goto-char (point-min))
