@@ -289,19 +289,19 @@ if necessary.  It is bound to RET and C-m in R-index pages."
             reg-keyword             "^\\([-a-zA-Z0-9._@$]+\\)[^:\n]*$"
             reg-start              "^Index:"))
      ((string-match "julia" ess-dialect)
-      (setq  com-packages           "_ess_list_categories()\n"
-             com-package-index      "_ess_print_index(\"%s\")\n"
-             reg-keyword             "^\\(.*+\\):$*"
-             reg-start              ":"
-             ))
+      (setq com-packages           "_ess_list_categories()\n"
+            com-package-index      "_ess_print_index(\"%s\")\n"
+            reg-keyword             "^\\(.*+\\):$*"
+            reg-start              ":"
+            ))
      (t (error "Sorry, not implemented for %s " ess-dialect)))
-    
+
     (when (and com-package-for-object
                ess-help-object
                (eq ess-help-type 'help))
       (setq pack (car (ess-get-words-from-vector
                        (format com-package-for-object ess-help-object)))))
-    
+
     (setq all-packs (ess-get-words-from-vector com-packages))
     (unless pack ;try symbol at point
       (setq pack  (car (member (ess-read-object-name-default) all-packs))))
@@ -309,7 +309,7 @@ if necessary.  It is bound to RET and C-m in R-index pages."
                                     all-packs nil nil nil nil pack))
     ;; (setq buff  (get-buffer-create (format "*help[%s](index:%s)*"  ess-dialect pack)))
 
-    
+
     (ess--display-indexed-help-page
      (format com-package-index pack)
      reg-keyword
@@ -362,7 +362,7 @@ if necessary.  It is bound to RET and C-m in R-index pages."
                               'follow-link t
                               'help-echo (or help-echo "help on object")))
           ))
-      
+
       ;; (save-excursion ;; why R places all these spaces?
       ;;   (goto-char (point-min))
       ;;   (while (re-search-forward " \\{10,\\} *" nil t)
@@ -387,7 +387,7 @@ if necessary.  It is bound to RET and C-m in R-index pages."
            (setq com "apropos(\"%s\")\n"
                  regexp "^\\(\\(\\w\\|\\s_\\)+\\)("))
           (t (error "Not implemented for dialect %s" ess-dialect)))
-    
+
     (ess--display-indexed-help-page
      (format com pattern) regexp
      (format "*ess-apropos[%s](%s)*" ess-current-process-name pattern)
@@ -401,13 +401,13 @@ if necessary.  It is bound to RET and C-m in R-index pages."
            (setq com "demo()\n"
                  regexp "^\\([^ \n:]+\\)  +"))
           (t (error "Not implemented for dialect %s" ess-dialect)))
-    
+
     (ess--display-indexed-help-page
      com regexp
      (format "*ess-demos[%s]*" ess-current-process-name)
      'demos #'ess--action-demo)))
 
-  
+
 (defun ess--action-demo (&optional button)
   "Provide help on object at the beginning of line.
 It's intended to be used in R-index help pages. Load the package
@@ -451,7 +451,7 @@ if necessary.  It is bound to RET and C-m in R-index pages."
               (setq packs (append (list (cons p details)) packs))
               (setq details nil)))
           ))
-      (setq buff  (get-buffer-create (format "*[%s]vignettes*"  ess-dialect)))
+      (setq buff (get-buffer-create (format "*[%s]vignettes*" ess-dialect)))
       (ess-with-current-buffer buff
         (setq buffer-read-only nil)
         (delete-region (point-min) (point-max))
@@ -520,6 +520,15 @@ if necessary.  It is bound to RET and C-m in R-index pages."
   (interactive)
   (ess-help-quit t))
 
+(defun ess--find-displayed-help-window ()
+  (catch 'win
+    (dolist (f (frame-list))
+      (when (frame-visible-p f)
+       (dolist (w (window-list f))
+         (when (eq (buffer-local-value 'major-mode (window-buffer w))
+                   'ess-help-mode)
+           (throw 'win w)))))))
+
 (defun ess--switch-to-help-buffer (buff &optional curr-major-mode)
   "Switch to help buffer and take into account `ess-help-own-frame'.
 For internal use. Used in `ess-display-help-on-object',
@@ -531,17 +540,18 @@ For internal use. Used in `ess-display-help-on-object',
         (special-display-frame-alist ess-help-frame-alist)
         (special-display-function (if (eq ess-help-own-frame 'one)
                                       'ess-help-own-frame
-                                    special-display-function)))
-    (if (eq curr-major-mode 'ess-help-mode)
-        (if ess-help-own-frame
-            (pop-to-buffer buff)
-          (switch-to-buffer buff))
+                                    special-display-function))
+        (help-win (or (and (eq curr-major-mode 'ess-help-mode)
+                           (selected-window))
+                      (and ess-help-reuse-window
+                           (ess--find-displayed-help-window)))))
+    (if help-win
+        (progn
+          (select-window help-win)
+          (switch-to-buffer buff nil 'force))
       (if ess-help-pop-to-buffer
           (pop-to-buffer buff)
-        (ess-display-temp-buffer buff))
-      )))
-
-
+        (ess-display-temp-buffer buff)))))
 
 (defvar ess-help-frame nil
   "Stores the frame used for displaying R help buffers.")
@@ -582,8 +592,6 @@ For internal use. Used in `ess-display-help-on-object',
 (defvar ess-help-sec-map nil "Sub-keymap for ESS help mode.")
 ;; this breaks "s ?" rather than to fix any (unbroken !) thing:
 ;; (make-variable-buffer-local 'ess-help-sec-map)
-
-
 
 (defvar ess-doc-map
   (let (ess-doc-map)
@@ -656,7 +664,7 @@ For internal use. Used in `ess-display-help-on-object',
     (define-key map "\C-c\M-l" 'ess-load-file); alias, as in 'iESS' where C-c C-l is comint-list-*
     (define-key map "\C-c\C-v" 'ess-display-help-on-object)
     (define-key map "\C-c\C-k" 'ess-request-a-process)
-    
+
     (define-key map "\C-c\C-d"   'ess-doc-map)
     (define-key map "\C-c\C-e"   'ess-extra-map)
     (define-key map "\C-c\C-t"   'ess-dev-map)
