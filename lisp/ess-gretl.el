@@ -499,6 +499,30 @@ end keywords as associated values.")
            (gretl--get-words-from-command "help functions\n" "Accessors:" "^Functions")
            (gretl--get-words-from-command "help functions\n" "^Functions" "^For")
            )))
+
+
+
+;;; AC
+(defvar  ac-source-gretl-objects
+  '((prefix     . ess-symbol-start)
+    (requires   . 2)
+    (candidates . ess-ac-gretl-objects)
+    (document   . ess-ac-help-object)
+    )
+  "Auto-completion source for gretl objects")
+
+(defun ess-ac-gretl-objects ()
+  "Get all cached objects"
+  (let ((aprf ac-prefix))
+    (let ((proc (ess-get-next-available-process nil t)))
+      (when aprf
+        (if (string-match "\\(.*\\)\\..*$" aprf)
+            (let ((module (match-string 1 aprf)))
+              (mapcar (lambda (el) (concat module "." (car el)))
+                      (gretl--get-objects proc module)))
+          (gretl--get-objects proc))))))
+
+
   
 ;; (defvar ess-gretl-error-regexp-alist '(gretl-in gretl-at)
 ;;   "List of symbols which are looked up in `compilation-error-regexp-alist-alist'.")
