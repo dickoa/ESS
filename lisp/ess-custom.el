@@ -838,7 +838,7 @@ Since ESS 13.05, the default is  RRR  rather than DEFAULT."
 
 ;; the real setting of this happens via <foo>-editing-alist:
 (defvar ess-style ess-default-style
-  "*The buffer specific ESS indentation style.")
+  "*The buffer specific ESS indentation style, see `ess-style-alist' for more.")
 
 ;;*;; Variables controlling behaviour of dump files
 
@@ -2299,13 +2299,12 @@ current buffer. Old system. From ESS[12.09] switched to new
 system described in `inferior-ess-font-lock-keywords'.")
 (make-variable-buffer-local 'inferior-ess-font-lock-defaults)
 
-
 (defvar comint-highlight-prompt 'comint-highlight-prompt)
 ;; needed for proper font-lock
 
 (defvar ess-S-fl-keyword:prompt
   (cons (concat "^" inferior-S-prompt) 'comint-highlight-prompt)
-  "Highlith prompts missed by comint.")
+  "Highlight prompts missed by comint.")
 
 ;; (defvar ess-S-fl-keyword:input-line
 ;;   (cons "^[a-zA-Z0-9 ]*[>+]\\(.*$\\)" '(1 font-lock-variable-name-face keep t)))
@@ -2542,10 +2541,10 @@ Defaults to `ess-S-non-functions'."
 
 
  ; julia-mode
-(defcustom inferior-julia-program-name "julia-release-basic"
+(defcustom inferior-julia-program-name "julia-basic"
   ;; the default assumes it is on the PATH ... which is typically the case after
   ;; a "typical unix-alike installation"
-  "Path to julia-release-basic executable"
+  "Path to julia-basic executable"
   :group 'ess-Julia)
 
 (defvar julia-basic-offset 4
@@ -2590,7 +2589,7 @@ Used for recording status of the program, mainly for debugging.")
 (defvar ess-customize-alist nil
   "Variable settings to use for proper behavior.
 Not buffer local!")
-;; TODO: fixme We cannot make it local as yet, Not list is set on inferior startup. 
+;; TODO: fixme We cannot make it local as yet, Not list is set on inferior startup.
 ;; (make-variable-buffer-local 'ess-customize-alist)
 ;; (defvaralias 'ess-local-customize-alist 'ess-customize-alist)
 
