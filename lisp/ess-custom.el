@@ -133,7 +133,7 @@
   :prefix "ess-")
 ;; Variables (not user-changeable)
 
-(defvar ess-version "13.09" ;; updated by 'make'
+(defvar ess-version "13.09-1" ;; updated by 'make'
   "Version of ESS currently loaded.")
 
 (defvar ess-revision nil ;; set
@@ -472,7 +472,6 @@ to install your custom sources.
   :group 'ess-extras
   :type '(choice (const t) (const script-only) (const nil)))
 
-
 (defcustom ess-ac-R-argument-suffix " = "
   "Suffix appended by `ac-source-R' and `ac-source-R-args' to candidates."
   :group 'R
@@ -491,6 +490,10 @@ might want to set this to nil.
 "
   :group 'ess
   :type 'boolean)
+
+
+(defvar ess-ac-sources nil
+  "Dialect specific, ESS specific list of ac-sources")
 
 (defvar ess--completing-hist nil
   "Variable to store completion history.
@@ -963,7 +966,7 @@ If nil, ESS will try finding one from a list."
   :group 'ess-roxy
   :type 'string)
 
-(defcustom ess-roxy-tags-noparam '("export" "nord")
+(defcustom ess-roxy-tags-noparam '("export" "noRd")
   "The tags used in roxygen fields that can be used alone.  Used
 to decide highlighting and tag completion."
   :group 'ess-roxy
@@ -2396,8 +2399,8 @@ default."
 
 (defcustom ess-help-pop-to-buffer t
   "If non-nil ess-help buffers are given focus during the display.
-The default is t.
-"
+The default is t (except when `focus-follows-mouse' and
+`mouse-autoselect-window' are both t)."
   :group 'ess-help
   :type 'boolean)
 

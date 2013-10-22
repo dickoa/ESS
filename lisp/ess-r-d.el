@@ -283,6 +283,39 @@ before ess-site is loaded) for it to take effect.")
   "Functions run in process buffer after the initialization of R
   process.")
 
+(defun ess--R-load-ESSR ()
+  "LOAD/INSTALL/UPDATE ESSR"
+  (let* ((ESSR-version "1.0.1") ; <- FIXME: smart way to automate this?
+         (up-to-date (ess-boolean-command
+                    (format
+                     "print(tryCatch(packageVersion('ESSR') >= '%s', error = function(e) FALSE))\n"
+                     ESSR-version))))
+    (if up-to-date ; also nil if not installed
+        (ess-eval-linewise "library(ESSR)\n" nil nil nil t)
+      (let ((ESSR (format "%sESSR_%s.tar.gz" ess-etc-directory ESSR-version))
+            (remote (or ess-remote
+                        (file-remote-p (ess-get-process-variable 'default-directory)))))
+        (if (or remote
+                (not (file-exists-p ESSR)))
+            (if (y-or-n-p
+                 (if remote
+                     "Looks like you are on a remote and compatible ESSR package is not installed. Download and install?"
+                   "Cannot locate local ESSR package source. Download and install?"))
+                (ess-eval-linewise
+                 (format "local({
+    require(utils) # e.g. when R_DEFAULT_PACKAGES=NULL
+    destfile <- tempfile(); on.exit(file.remove(destfile))
+    download.file('http://vitalie.spinu.info/ESSR/ESSR_%s.tar.gz', destfile = destfile)
+    install.packages(destfile, repos = NULL, type='source')
+}); library('ESSR')\n"
+                         ESSR-version))
+              (message "ESSR was not installed or updated. ESS might not functon correctly")
+              (ding))
+          (with-temp-message "Installing ESSR package ..."
+            (ess-eval-linewise
+             ;; library must be on the same line;
+             ;; install.packages might ask for the input
+             (format "install.packages('%s', repos=NULL, type='source');library(ESSR)\n" ESSR))))))))
 
 ;;;### autoload
 (defun R (&optional start-args)
@@ -320,9 +353,9 @@ to R, put them in the variable `inferior-R-args'."
       (setq use-dialog-box nil)
       (if ess-microsoft-p ;; default-process-coding-system would break UTF locales on Unix
           (setq default-process-coding-system '(undecided-dos . undecided-dos))))
-    
-    (inferior-ess r-start-args) 
-    
+
+    (inferior-ess r-start-args)
+
     (ess-process-put 'funargs-pre-cache ess-R--funargs-pre-cache)
 
     (remove-hook 'completion-at-point-functions 'ess-filename-completion 'local) ;; should be first
@@ -334,12 +367,6 @@ to R, put them in the variable `inferior-R-args'."
     (ess-write-to-dribble-buffer
      (format "(R): inferior-ess-language-start=%s\n"
              inferior-ess-language-start))
-    ;; can test only now that R is running:
-    (ess-write-to-dribble-buffer
-     (format "(R): version %s\n"
-             (ess-get-words-from-vector "as.character(getRversion())\n")))
-
-    (ess--inject-code-from-file (format "%sESSR.R" ess-etc-directory))
 
     (when ess-can-eval-in-background
       (ess-async-command-delayed
@@ -352,7 +379,11 @@ to R, put them in the variable `inferior-R-args'."
                            nil nil nil 'wait-prompt))
 
     (with-ess-process-buffer nil
-      (run-mode-hooks 'ess-R-post-run-hook))))
+      (run-mode-hooks 'ess-R-post-run-hook))
+
+    ;; should be the last; install.packages might ask for input
+    (redisplay)
+    (ess--R-load-ESSR)))
 
 
 
@@ -1242,23 +1273,21 @@ Completion is available for supplying options."
   "Cache var to store package names. Used by
   `ess-install.packages'.")
 
-
-
-(defun ess-R-install.packages (&optional update)
+(defun ess-R-install.packages (&optional update pack)
   "Prompt and install R package. With argument, update cached packages list."
   (interactive "P")
   (when (equal "@CRAN@" (car (ess-get-words-from-vector "getOption('repos')[['CRAN']]\n")))
     (ess-setCRANMiror)
     (ess-wait-for-process (get-process ess-current-process-name))
-    (setq update t))
+    (unless pack (setq update t)))
   (when (or update
             (not ess--packages-cache))
     (message "Fetching R packages ... ")
     (setq ess--packages-cache
           (ess-get-words-from-vector "print(rownames(available.packages()), max=1e6)\n")))
-  (let ((ess-eval-visibly-p t)
-        pack)
-    (setq pack (ess-completing-read "Package to install" ess--packages-cache))
+  (let* ((ess-eval-visibly-p t)
+         (pack (or pack
+                   (ess-completing-read "Package to install" ess--packages-cache))))
     (process-send-string (get-process ess-current-process-name)
                          (format "install.packages('%s')\n" pack))
     (display-buffer (buffer-name (process-buffer (get-process ess-current-process-name))))
@@ -1286,7 +1315,7 @@ Currently works only for R."
 (defun ess-setCRANMiror ()
   "Set cran mirror"
   (interactive)
-  (let* ((M1 (ess-get-words-from-vector "local({out <- getCRANmirrors(); print(paste(out$Name,'[',out$URL,']', sep=''))})\n"))
+  (let* ((M1 (ess-get-words-from-vector "local({out <- getCRANmirrors(local.only=TRUE); print(paste(out$Name,'[',out$URL,']', sep=''))})\n"))
          (M2 (mapcar (lambda (el)
                        (string-match "\\(.*\\)\\[\\(.*\\)\\]$" el)
                        (propertize (match-string 1 el) 'URL (match-string 2 el)))
@@ -1318,11 +1347,10 @@ Currently works only for R."
 (defun ess-load-library ()
   "Prompt and load dialect specific library/package/module.
 
-Note that add-on code in R are called 'packages' and the name of
-this function has nothing to do with R package mechanism, but it
+Note that add-ons in R are called 'packages' and the name of this
+function has nothing to do with R package mechanism, but it
 rather serves a generic, dialect independent purpose. It is also
-similar to `load-library' emacs function.
-"
+similar to `load-library' emacs function."
   (interactive)
   (if (not (string-match "^R" ess-dialect))
       (message "Sorry, not available for %s" ess-dialect)

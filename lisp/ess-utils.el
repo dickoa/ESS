@@ -165,13 +165,16 @@ for a better but slower version."
  If VERBOSE   is non-nil, (message ..) about replacements."
   (let ((case-fold-search (and case-fold-search
                                (not fixedcase))); t  <==> ignore case in search
-        (pl) (p))
-    (while (setq p (re-search-forward regexp nil t))
+        (ppt (point)); previous point
+        (p))
+    (while (and (setq p (re-search-forward regexp nil t))
+                (< ppt p))
+      (setq ppt p)
       (cond ((not (ess-inside-string-or-comment-p (1- p)))
              (if verbose
                  (let ((beg (match-beginning 0)))
-                   (message "(beg,p)= (%d,%d) = %s"
-                            beg p (buffer-substring beg p) )))
+                   (message "buffer in (match-beg.,p)=(%d,%d) is '%s'"
+                            beg p (buffer-substring beg p))))
              (replace-match to-string fixedcase literal)
              ;;or (if verbose (setq pl (append pl (list p))))
              )))
@@ -998,9 +1001,8 @@ Use M-. to navigate to a tag. M-x `visit-tags-table' to
 append/replace the currently used tag table.
 
 If prefix is given, force tag generation based on imenu. Might be
-useful when different languages are also present in the
-directory (.cpp, .c etc).
-"
+useful when different language files are also present in the
+directory (.cpp, .c etc)."
   (interactive "DDirectory to tag: 
 FTags file (default TAGS): ")
   (when (eq (length (file-name-nondirectory tagfile)) 0)
@@ -1036,12 +1038,12 @@ string giving arguments of the function as they appear in
 documentation, third element is a list of arguments of all
 methods.
 
-If package_name is nil , and time_stamp is less recent than the
+If package_name is nil, and time_stamp is less recent than the
 time of the last user interaction to the process, then update the
 entry.
 
-Package_name is also nil if funname was not found or it is a
-special name i.e. contains :,$ or @.
+Package_name is also nil when funname was not found, or funname
+is a special name that contains :,$ or @.
 
 If PROC is given, it should be an ESS process which should be
 queried for arguments.
@@ -1056,9 +1058,7 @@ queried for arguments.
       (when (and args
                  (and (time-less-p ts (process-get proc 'last-eval))
                       (or (null pack)
-                          (equal pack "")
-                          ;; fixeme: remove this from here
-                          (equal pack "R_GlobalEnv"))))
+                          (equal pack ""))))
         ;; reset cache
         (setq args nil))
       (or args

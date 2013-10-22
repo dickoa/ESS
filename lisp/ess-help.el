@@ -548,7 +548,9 @@ For internal use. Used in `ess-display-help-on-object',
     (if help-win
         (progn
           (select-window help-win)
-          (switch-to-buffer buff nil 'force))
+          (set-window-buffer help-win buff)
+          ;; (switch-to-buffer buff nil 'force) <- 3rd argument appeared in emacs 24
+          )
       (if ess-help-pop-to-buffer
           (pop-to-buffer buff)
         (ess-display-temp-buffer buff)))))
@@ -949,11 +951,13 @@ specific.")
 
 (defun ess-describe-object-at-point ()
   "Get info for object at point, and display it in an electric buffer or tooltip.
-This is an electric command (see `ess--execute-electric-command').
-
 If region is active use it instead of the object at point.
 
-After invocation of this command, all standard emacs commands,
+This is an electric command (`ess--execute-electric-command'),
+which means that you can use the last key to cycle through the
+action set (in this case `C-e').
+
+After invocation of this command all standard emacs commands,
 except those containing 'window' in their names, remove the
 electric *ess-describe* buffer. Use `other-window' to switch to
 *ess-describe* window.
@@ -962,8 +966,7 @@ Customize `ess-describe-at-point-method' if you wan to display
 the description in a tooltip.
 
 See also `ess-R-describe-object-at-point-commands' (and similar
-option for other dialects).
-"
+option for other dialects)."
   (interactive)
   (if (not ess-describe-object-at-point-commands)
       (message "Not implemented for dialect %s" ess-dialect)
