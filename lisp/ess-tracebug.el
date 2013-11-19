@@ -1232,10 +1232,12 @@ If in debugging state, mirrors the output into *ess.dbg* buffer."
       (with-current-buffer (get-buffer-create (process-get proc 'accum-buffer-name))
         (goto-char (point-max))
         (insert string))
-      ;; Need this timer here.  Process might be waiting for user output
+      ;; Really need this timer here.  Process might be waiting for user output!!
       (when (timerp flush-timer)
+        ;; cancel the timer each time we enter the filter
         (cancel-timer flush-timer)
         (process-put proc 'flush-timer nil))
+      ;; ... and setup a new one
       (process-put proc 'flush-timer
                    (run-at-time .2 nil 'ess--flush-process-output-cache proc))
       (unless last-time ;; don't flush first time
@@ -1243,7 +1245,6 @@ If in debugging state, mirrors the output into *ess.dbg* buffer."
         (process-put proc 'last-flush-time new-time))
       (when (or is-ready
                 (process-get proc 'sec-prompt) ; for the sake of ess-eval-linewise
-                ;; (null last-time)
                 ;; flush periodically
                 (> (- new-time last-time) .6))
         (ess--flush-process-output-cache proc)))
@@ -1723,7 +1724,8 @@ ARGS are ignored to allow using this function in process hooks."
 
 (defun ess--tb-R-source-current-file (&optional filename)
   "Save current file and source it in the .R_GlobalEnv environment."
-  ;; make it more elaborate :todo:
+  ;; fixme: this sucks as it doesn't use ess-load-command and the whole thing
+  ;; seems redundand to the ess-load-file
   (interactive)
   (ess-force-buffer-current "R process to use: ")
   (let ((proc (get-process ess-local-process-name))
@@ -1732,7 +1734,7 @@ ARGS are ignored to allow using this function in process hooks."
             (ess-get-process-variable 'ess-developer))
         (ess-developer-source-current-file filename)
       (if (not file)
-          ;; source the buffer content, org-mode scratch for ex.
+          ;; source the buffer content, org-mode, *scratch* etc.
           (let ((ess-inject-source t))
             (ess-tracebug-send-region proc (point-min) (point-max) nil
                                       (format "Sourced buffer '%s'" (propertize (buffer-name) 'face 'font-lock-function-name-face))))
@@ -1740,8 +1742,8 @@ ARGS are ignored to allow using this function in process hooks."
         (save-selected-window
           (ess-switch-to-ESS t))
         (ess-send-string (get-process ess-current-process-name)
-                         (concat "\ninvisible(eval({source(file=\"" buffer-file-name
-                                 "\")\n cat(\"Sourced file '" buffer-file-name "'\\n\")}, env=globalenv()))"))))))
+                         (concat "\ninvisible(eval({source(file=\"" filename
+                                 "\")\n cat(\"Sourced file '" filename "'\\n\")}, env=globalenv()))"))))))
 
 ;;;_ + BREAKPOINTS
 
