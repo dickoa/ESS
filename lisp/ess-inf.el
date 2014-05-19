@@ -69,6 +69,7 @@
 (autoload 'tramp-tramp-file-p           "tramp" "(autoload).")
 (autoload 'tramp-file-name-localname    "tramp" "(autoload).")
 (autoload 'tramp-dissect-file-name      "tramp" "(autoload).")
+(autoload 'with-parsed-tramp-file-name  "tramp" "(autolaod).")
 
 ;; not really needed as tracebug and developer are loaded in r-d.el
 (autoload 'ess-tracebug-send-region       "ess-tracebug"      "(autoload).")
@@ -369,6 +370,7 @@ Otherwise stay at current position and return nil "
     (when new-point
       (goto-char new-point))))
 
+(defvar compilation--parsed)
 (defun inferior-ess-fontify-region (beg end &optional verbose)
   "Fontify output by output within the beg-end region to avoid
 fontification spilling over prompts."
@@ -379,18 +381,25 @@ fontification spilling over prompts."
          (pos (or (inferior-ess-goto-last-prompt-if-close)
                   beg))
          (pos2))
+    ;; Font lock seems to skip regions for unlear reason when
+    ;; font-lock-dont-widen is t. This in turn screws compilation marker and
+    ;; makes compilation--parse-region think that it parsed stuff that it
+    ;; didn't. So reset it each time.
+    (setq compilation--parsed -1)
     (with-silent-modifications
       ;; (dbg pos end)
-      (font-lock-unfontify-region pos end)
+      ;; (font-lock-unfontify-region pos end)
       (while (< pos end)
         (goto-char pos)
         (comint-next-prompt 1)
         (setq pos2 (min (point) end))
-        (save-restriction
-          (narrow-to-region pos pos2)
-          ;; (redisplay)
-          ;; (sit-for 1)
-          (font-lock-default-fontify-region pos pos2 verbose))
+        (if nil
+            (font-lock-default-fontify-region pos pos2 verbose)
+          ;; Some error locations are not fontified with with narrowing. Especiall those from gcc.
+          ;; What on earth is goin on?
+          (save-restriction
+            (narrow-to-region pos pos2)
+            (font-lock-default-fontify-region pos pos2 verbose)))
         (setq pos pos2)))))
 
 (defun ess-gen-proc-buffer-name:simple (proc-name)
@@ -1135,7 +1144,7 @@ FORCE-REDISPLAY to avoid excesive redisplay."
   (setq proc (or proc (get-process ess-local-process-name)))
   (unless (eq (process-status proc) 'run)
     (ess-error "ESS process has died unexpectedly."))
-  (setq wait (or wait 0.001)) ;;xemacs is stuck if it's 0 here
+  (setq wait (or wait 0.002)) ;;xemacs is stuck if it's 0 here
   (let ((start-time (float-time)))
     (save-excursion
       (while (or (accept-process-output proc wait)
@@ -1496,12 +1505,12 @@ local({
           (set-marker (process-mark sprocess) oldpm))))
     buf))
 
-(defun ess-boolean-command (com &optional buf)
+(defun ess-boolean-command (com &optional buf wait)
   "Like `ess-command' but expects COM to print TRUE or FALSE.
 If TRUE (or true) is found return non-nil otherwise nil.
 
 Example: (ess-boolean-command \"2>1\n\")"
-  (with-current-buffer (ess-command com buf)
+  (with-current-buffer (ess-command com buf nil nil wait)
     (goto-char (point-min))
     (let ((case-fold-search t))
       (re-search-forward "true" nil t))))
@@ -2647,7 +2656,7 @@ This is a good thing to put in `ess-post-run-hook' --- for the S dialects."
   (interactive)
   (if (string= ess-language "S")
       (ess-eval-linewise (format "options(width=%d, length=99999)"
-                                 (1- (window-width)))
+                                 (- (window-width) 2))
                          nil nil nil 'wait-prompt)))
 
 (defun ess-execute (command &optional invert buff message)
@@ -3226,7 +3235,8 @@ list."
       (if ess-smart-operators
           (progn
             (delete-horizontal-space)
-            (insert ", "))
+            (insert ", ")
+            (ess-indent-line))
         (insert ","))
       )))
 

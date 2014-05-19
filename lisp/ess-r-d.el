@@ -333,7 +333,7 @@ before ess-site is loaded) for it to take effect."))
                             (buffer-string))))
         (ess-write-to-dribble-buffer (format "version file: %s\nloadremote file: %s\n"
                                              verfile loadremote))
-        (unless (ess-boolean-command (format r-load-code version))
+        (unless (ess-boolean-command (format r-load-code version) nil 0.1)
           (let ((errmsg (with-current-buffer " *ess-command-output*" (buffer-string)))
                 (files (directory-files src-dir t "\\.R$")))
             (ess-write-to-dribble-buffer (format "error loading ESSR.rda: \n%s\n" errmsg))
@@ -1080,7 +1080,7 @@ To be used instead of ESS' completion engine for R versions >= 2.7.0."
     (when (string-match ":+\\(.*\\)" sym)
       (setq sym (match-string 1 sym)))
     (ess-with-current-buffer buf
-      (ess--flush-help-into-current-buffer sym))
+      (ess--flush-help-into-current-buffer sym nil t))
     (with-current-buffer buf
       (ess-help-underline)
       (goto-char (point-min))
