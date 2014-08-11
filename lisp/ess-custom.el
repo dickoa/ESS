@@ -132,7 +132,7 @@
   :prefix "ess-")
 ;; Variables (not user-changeable)
 
-(defvar ess-version "14.05" ;; updated by 'make'
+(defvar ess-version "14.06" ;; updated by 'make'
   "Version of ESS currently loaded.")
 
 (defvar ess-revision nil ;; set
@@ -261,7 +261,7 @@ See also `ess-blink-delay'"
   :type 'boolean)
 
 (defcustom ess-blink-delay .3
-  "Number of secons to highlight the evaluated region."
+  "Number of seconds to highlight the evaluated region."
   :group 'ess
   :type 'number)
 
@@ -548,6 +548,12 @@ it to the customized setting. "
 as objects in that directory (when t). This is not true for DOS and
 other OS's with limited filename lengths.  Even if this is set
 incorrectly, the right things will probably still happen, however."
+  :group 'ess-edit
+  :type 'boolean)
+
+(defcustom ess-require-final-newline t
+  "*Will be used to set `require-final-newline' in several <language>-editing-alist.
+The default (t) is desirable for several (unix/GNU) text tools."
   :group 'ess-edit
   :type 'boolean)
 
@@ -1716,7 +1722,7 @@ Set to nil if language doesn't support secondary prompt.")
 
 ;; need to recognise  + + + > > >
 ;; and "+ . + " in tracebug prompt
-(defcustom inferior-S-prompt "[]a-zA-Z0-9.[]*\\([>+.] \\)*> "
+(defcustom inferior-S-prompt "[]a-zA-Z0-9.[]*\\(?:[>+.] \\)*> "
   "Regexp used in S and R inferior and transcript buffers for prompt navigation.
 Customise it to make `comint-previous-prompt' quiqly navigate to
 interesting portions of the buffer.
@@ -2560,10 +2566,11 @@ Defaults to `ess-S-non-functions'."
 
 
  ; julia-mode
-(defcustom inferior-julia-program-name "julia-basic"
-  ;; the default assumes it is on the PATH ... which is typically the case after
-  ;; a "typical unix-alike installation"
-  "Path to julia-basic executable"
+(defcustom inferior-julia-program-name (if (executable-find "julia-basic")
+                                           "julia-basic"
+                                         "julia")
+  "julia' executable.
+Need to be a full path if julia executable is not in the `exec-path'"
   :group 'ess-Julia)
 
 (defvar julia-basic-offset 4
