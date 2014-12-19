@@ -428,11 +428,11 @@ foo <- function(x) {
     my.long.Expression <- expression(
         x[a[j]] == exp(theta[1] + theta[2]^2),
         x[b[i]] == sin(theta[3] ~~ theta[4])
-    )
+        )
     ausdruck <- expression
     my.long.Expr...... <- ausdruck(
         x[a[j]] == exp(theta[1] + theta[2]^2),
-    )
+        )
 }
 
 ## VS[18-08-2012]: redundant feature. This is a feature for long subexpressions
@@ -538,20 +538,21 @@ foo <-
         a,
         b,
         c
-    )
-### ^- here
+        )
+###     ^-- ) is here
 
 foo <- function_call(
     a,
     b,
     c
-) ## bol
+    )
+### ^-- ) is here
 
 foo <- function_call(a,
                      b,
                      c
                      )
-###                  ^-) is here
+###                  ^-- ) is here 
 
 ### --- 24 ---
 ### shift comma in function calls
@@ -559,8 +560,9 @@ foo <- function_call(a,
 foo <- function_call(a
                    , b
                    , c
-###                  ^- c is here
+###                  ^-- c is here                     
                      )
+###                  ^-- ) is here                     
 
 ### --- 25 ---
 ## if/else in function calls and nested

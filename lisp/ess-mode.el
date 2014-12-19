@@ -1024,6 +1024,27 @@ Return the amount the indentation changed by."
           (goto-char (- (point-max) pos))))
       shift-amt)))
 
+(defun ess-calculate-indent--after-last-open-paren ()
+  ;; called just before the open parenthesis
+  (and
+   (ess-looking-at-last-open-paren-p)
+   (cond
+    ;; case 1: numeric
+    ;; distinguish between
+    ;;   a <- some.function(arg1,
+    ;;                      arg2)
+    ((numberp ess-arg-function-offset-new-line)
+     (forward-sexp -1)
+     (+ (current-column) ess-arg-function-offset-new-line))
+    ;; case 2: list
+    ;;   a <- some.function(
+    ;;     arg1,
+    ;;     arg2)
+    ;;
+    ((and (listp ess-arg-function-offset-new-line)
+          (numberp (car ess-arg-function-offset-new-line)))
+     (+ (current-indentation) (car ess-arg-function-offset-new-line))))))
+
 
 (defun ess-looking-at-last-open-paren-p ()
   (looking-at "[[:blank:]]*([[:blank:]]*\\($\\|#\\)"))
@@ -1031,11 +1052,19 @@ Return the amount the indentation changed by."
 (defun ess-calculate-indent--closing-paren ()
   (search-forward ")")
   (backward-sexp)
-  (if (ess-looking-at-last-open-paren-p)
-      ;; If this line ends with "("
-      (current-indentation)
-    ;; otherwise
-    (+ (current-column) 1)))
+  (or 
+   ;; If the cursor is in between parents we indent as normal text to avoid
+   ;; annoyance with paired parents
+   (and (looking-at-p "[( \t\n]+)")
+        (ess-calculate-indent--after-last-open-paren))
+   (cond ((numberp ess-close-paren-offset)
+          (+ (or (ess-calculate-indent--after-last-open-paren)
+                 (1+ (current-column)))
+             ess-close-paren-offset))
+         ((and (listp ess-close-paren-offset)
+               (numberp (car ess-close-paren-offset)))
+          (+ (current-indentation) (car ess-close-paren-offset)))
+         (t (error "ess-close-paren-offset must be a number or a list of one number.")))))
 
 (defun ess-calculate-indent--default (&optional parse-start)
   (let ((indent-point (point))
@@ -1096,31 +1125,11 @@ Return the amount the indentation changed by."
                           bol t))
                     (forward-sexp -1)
                     (+ (current-column) ess-arg-function-offset))
-                   ;; now, distinguish between
-                   ;;   a <- some.function(arg1,
-                   ;;                      arg2)
-                   ;; and
-                   ;;   a <- some.function(
-                   ;;     arg1,
-                   ;;     arg2)
-                   ;;
-                   ;; case 1: numeric
-                   ((and (numberp ess-arg-function-offset-new-line)
-                         (ess-looking-at-last-open-paren-p))
-                    (forward-sexp -1)
-                    (+ (current-column) ess-arg-function-offset-new-line))
-                   ;; case 2: list
-                   ((and (listp ess-arg-function-offset-new-line)
-                         (numberp (car ess-arg-function-offset-new-line))
-                         (ess-looking-at-last-open-paren-p))
-                    ;; flush args to the begining of
-                    (beginning-of-line)
-                    (skip-chars-forward " \t")
-                    (+ (current-column) (car ess-arg-function-offset-new-line)))
-                   ;; End
                    (t
-                    (progn (goto-char (1+ containing-sexp))
-                           (current-column))))))
+                    (or
+                     (ess-calculate-indent--after-last-open-paren)
+                     (progn (goto-char (1+ containing-sexp))
+                            (current-column)))))))
           (t
            ;; Statement level (containing-sexp char is "{").  Is it a continuation
            ;; or a new statement? Find previous non-comment character.

@@ -683,7 +683,7 @@ are indented at the previous line indentation + N characters:
      arg2)
 
 
-If a number N, the statement are alligned at the beggining of
+If a number N, the statement are alligned at the beginning of
 function call + N characters:
 
   a <- some.function(other.function(
@@ -715,6 +715,29 @@ some.function(arg1,
 ;;added rmh 2Nov97 at request of Terry Therneau
 (defvar ess-close-brace-offset 0
   "Extra indentation for closing braces.")
+
+(defvar ess-close-paren-offset 0
+  "Extra indentation for closing parenthesis.
+When a number, adjustment is made with respect to the opening
+parenthesis taking into account the value of
+`ess-arg-function-offset-new-line'. When set to 0 the closing
+parenthesis is indented as follows: 
+
+some.function(arg1,
+              arg2
+              )
+
+When this variable is a list of the form '(N), N being a number,
+adjust with respect to the indentation of the line containing an
+opening parenthesis. For example, when set to '(0), the closing
+parenthesis is indented as follows:
+
+{
+    some.function(arg1,
+                  arg2 = X
+    )
+}
+")
 
 ;;added rmh 2Nov97 at request of Terry Therneau
 (defcustom ess-fancy-comments t
